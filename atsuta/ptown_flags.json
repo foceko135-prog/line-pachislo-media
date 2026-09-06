@@ -1,0 +1,484 @@
+{
+ "A-SLOT+ ディスクアップ ULTRAREMIX": [
+  "smart_slot",
+  "at"
+ ],
+ "L アズールレーン THE ANIMATION": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "L 東京喰種": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "LB SHAKE BONUS TRIGGER": [
+  "smart_slot",
+  "bonus",
+  "kainyu",
+  "bonus_trigger"
+ ],
+ "LBクレアの秘宝伝ボーナストリガーver.": [
+  "smart_slot",
+  "bonus",
+  "bonus_trigger"
+ ],
+ "LBサンダーV": [
+  "smart_slot",
+  "bonus",
+  "bonus_trigger"
+ ],
+ "LBパチスロ ヱヴァンゲリヲン ～約束の扉～": [
+  "smart_slot",
+  "bonus",
+  "bonus_trigger"
+ ],
+ "LToLOVEるダークネス TRANCE ver.8.7": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "Lからくりサーカス2": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "Lとある魔術の禁書目録2": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "Lとんでもスキルで異世界放浪メシ": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "Lやじきた道中記参る！": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "Lスマスロ ゴッドイーター リザレクション": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "Lスマスロ モンキーターンＶ": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "Lスマスロかぐや様は告らせたい": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "Lスマスロバジリスク甲賀忍法帖絆2 天膳BLACK EDITION": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "Lスマスロ北斗の拳": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "Lスーパーリオエース2": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "Lタクトオーパス デスティニー": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "Lデビルメイクライ5 スタイリッシュトライブ": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "Lパチスロ 喰霊‐零‐Re": [
+  "smart_slot",
+  "art",
+  "limit"
+ ],
+ "Lパチスロ 炎炎ノ消防隊2": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "Lパチスロ 革命機ヴァルヴレイヴ2（Lヴヴヴ2）": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "Lパチスロうみねこのなく頃に2": [
+  "smart_slot",
+  "art",
+  "limit",
+  "kainyu"
+ ],
+ "Lビッグドリーム THE GOLDEN PUSHER": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "Lミリオンゴッド－神々の軌跡－": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "Lヤバチバ": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "L戦国乙女5 業火を穿つ宿焔の双刃": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "L戦国乙女４ 戦乱に閃く炯眼の軍師": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "L押忍！番長４": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "L甲鉄城のカバネリ海門決戦": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "L痛いのは嫌なので防御力に極振りしたいと思います。": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "L真打吉宗": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "L聖闘士星矢 海皇覚醒ＣＵＳＴＯＭ ＥＤＩＴＩＯＮ": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "L虚構推理": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "P ToLOVEるダークネス": [
+  "middle_type",
+  "st"
+ ],
+ "P 冬のソナタ My Memory": [
+  "middle_type"
+ ],
+ "P 宇宙戦艦ヤマト2202 超波動": [
+  "middle_type",
+  "st"
+ ],
+ "P 魔法少女まどか☆マギカ3": [
+  "timing",
+  "st",
+  "mixed_type",
+  "lucky_trigger"
+ ],
+ "PF機動戦士ガンダムユニコーン 再来‐白き一角獣と黒き獅子‐": [
+  "middle_type",
+  "mixed_type"
+ ],
+ "Pバンドリ!": [
+  "middle_type",
+  "st"
+ ],
+ "Pルパン三世 ONE COLLECTION": [
+  "middle_type",
+  "st",
+  "mixed_type"
+ ],
+ "P世界最高の暗殺者、異世界貴族に転生する": [
+  "middle_type",
+  "mixed_type",
+  "lucky_trigger"
+ ],
+ "P中森明菜・歌姫伝説~BLACK DIVA 極~": [
+  "middle_type",
+  "st"
+ ],
+ "P牙狼11～冴島大河～XX-MU": [
+  "middle_type",
+  "st"
+ ],
+ "SアイムジャグラーＥＸ": [
+  "bonus",
+  "alert"
+ ],
+ "e ぱちんこ押忍!番長 漢の頂 99ver.": [
+  "digital",
+  "st"
+ ],
+ "e ソードアート・オンライン アリシゼーション 夜空": [
+  "smart_pinball",
+  "timing",
+  "st",
+  "lucky_trigger"
+ ],
+ "e 七つの大罪3": [
+  "smart_pinball",
+  "middle_type",
+  "lucky_trigger"
+ ],
+ "e 乃木坂46 II": [
+  "smart_pinball",
+  "timing"
+ ],
+ "e 乃木坂46 II SWEET Version": [
+  "smart_pinball",
+  "timing"
+ ],
+ "eF機動戦士ガンダムSEED クライマックス": [
+  "smart_pinball",
+  "st",
+  "lucky_trigger"
+ ],
+ "eアクセル・ワールド": [
+  "smart_pinball",
+  "timing",
+  "lucky_trigger"
+ ],
+ "eゾン100～ゾンビになるまでにしたい100のこと～": [
+  "smart_pinball",
+  "timing",
+  "st",
+  "lucky_trigger"
+ ],
+ "いざ！番長": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "この素晴らしい世界に祝福を！": [
+  "smart_slot",
+  "at"
+ ],
+ "キングハナハナ-30": [
+  "bonus"
+ ],
+ "ゴーゴージャグラー３": [
+  "bonus",
+  "alert"
+ ],
+ "ストリートファイター6": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "スマスロ ようこそ実力至上主義の教室へ": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "スマスロ シャーマンキング": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "スマスロ ハナビ": [
+  "smart_slot",
+  "rt",
+  "bonus",
+  "kainyu"
+ ],
+ "スマスロ バイオハザードRE：3": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "スマスロ マギアレコード 魔法少女まどか☆マギカ外伝": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "スマスロ モンスターハンターライズ": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "スマスロ 化物語": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "スマスロ 北斗の拳 転生の章2": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "スマスロ 攻殻機動隊": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "スマスロ 東京リベンジャーズ(リベスロ)": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "スマスロ 沖ドキ!DUO アンコール": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "スマスロ 聖戦士ダンバイン": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "スマスロスーパーブラックジャック": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "スマスロネオプラネット": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "スマスロ北斗の拳": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "スロット ゾンビランドサガ": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "スーパー海物語IN沖縄6": [
+  "middle_type"
+ ],
+ "ソードアート・オンラインII": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "チバリヨ": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "ナナシー": [
+  "digital",
+  "st",
+  "with_setting",
+  "ceiling"
+ ],
+ "ニューキングハナハナV-30": [
+  "bonus",
+  "bonus_trigger"
+ ],
+ "ニューパルサー": [
+  "bonus"
+ ],
+ "ネオアイムジャグラーEX": [
+  "bonus",
+  "alert"
+ ],
+ "パチスロ 甲鉄城のカバネリ": [
+  "at",
+  "limit",
+  "kainyu"
+ ],
+ "パチスロ 転生したら剣でした": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "ファンキージャグラー２ＫＴ": [
+  "bonus",
+  "alert"
+ ],
+ "マイジャグラーV": [
+  "bonus",
+  "alert"
+ ],
+ "ワールドダイスター": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "今日から俺は!! パチスロ編": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "吉宗": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "回胴黙示録カイジ 狂宴": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "戦国コレクション6": [
+  "smart_slot",
+  "at",
+  "limit"
+ ],
+ "押忍！番長ＺＥＲＯ": [
+  "at",
+  "limit"
+ ],
+ "沖ドキ！ゴージャス(30Φ)": [
+  "at",
+  "limit"
+ ],
+ "沖ドキ！ＢＬＡＣＫ": [
+  "at",
+  "limit"
+ ],
+ "真・花の慶次": [
+  "middle_type",
+  "st"
+ ],
+ "Ｌ不二子ＢＴ": [
+  "smart_slot",
+  "bonus",
+  "kainyu",
+  "bonus_trigger"
+ ],
+ "Ｐ中森明菜・歌姫伝説～ＴＨＥ ＢＥＳＴ ＬＥＧＥＮＤ～１／９９ｖｅｒ": [
+  "digital",
+  "st"
+ ],
+ "Ｐ中森明菜・歌姫伝説～ＴＨＥ　ＢＥＳＴ　ＬＥＧＥＮＤ～１／９９ｖｅｒ": [
+  "digital",
+  "st"
+ ],
+ "Ｐ麻雀物語４ ７７ｖｅｒ．": [
+  "digital",
+  "mixed_type",
+  "ceiling"
+ ],
+ "Ｐ麻雀物語４　７７ｖｅｒ．": [
+  "digital",
+  "mixed_type",
+  "ceiling"
+ ],
+ "ｅ 東京喰種 超デカ 超一撃 ver.": [
+  "smart_pinball",
+  "st",
+  "lucky_trigger"
+ ]
+}

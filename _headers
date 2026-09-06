@@ -1,0 +1,55 @@
+# Cloudflare Pages のレスポンスヘッダー設定(2026-07-31新設)。
+# 固定URL /atsuta/last7 は中身が毎日入れ替わるため、ブラウザ/中間キャッシュに
+# 古い版が居座らないよう毎回サーバーへ確認させる(no-cache=キャッシュはするが必ず検証)。
+# 日付フォルダ配下(履歴)は中身が変わらないので既定のままで良い。
+/atsuta/last7
+  Cache-Control: no-cache, must-revalidate
+
+/atsuta/last7.html
+  Cache-Control: no-cache, must-revalidate
+
+# その日のデータ本体(2026-08-02・データとUIの分離)。HTMLと対で毎晩入れ替わる。
+/atsuta/last7.data.js
+  Cache-Control: no-cache, must-revalidate
+
+# UI本体(2026-08-02)。**内容ハッシュ付きのURL(?v=xxxxxxxx)でしか参照しない**ので、
+# 中身が変われば必ずURLも変わる=長期キャッシュで安全。ここを長く持たせることが
+# 分離の目的そのもの(従来は毎晩1.4MBのHTMLを丸ごと取り直していた)。
+/atsuta/app.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/atsuta/app.css
+  Cache-Control: public, max-age=31536000, immutable
+
+# 期間差分の外部データ(2026-08-01・分割ロード)。HTMLと対で更新されるので同じ扱いにする。
+# 古いJSONと新しいHTMLが噛み合うと貼り替え先のセルが合わず盤面が壊れるため、
+# ここだけキャッシュを許すわけにいかない。
+/atsuta/last7.periods.json
+  Cache-Control: no-cache, must-revalidate
+
+# 新台入替の告知(2026-08-02新設)。毎日のチェックが書き換えるので、古いまま居座らせない。
+/atsuta/notice.json
+  Cache-Control: no-cache, must-revalidate
+
+# 入替の内訳(2026-08-04新設・新台/増台/減台/移動台/撤去台)。入替のたびに書き換わる。
+/atsuta/iretae.json
+  Cache-Control: no-cache, must-revalidate
+
+# 機種名→筐体画像の対応(2026-08-04新設)。機種が入れ替わったときだけ増えるので
+# 長く持たせすぎず、かといって毎回取り直す必要も無い程度にする。
+/atsuta/kishu.json
+  Cache-Control: public, max-age=3600
+
+# 記念日にこの店で本当に出ていたか(2026-08-04新設)。日々の差枚から作り直すので
+# 毎日中身が変わる。古いまま残ると「先週の集計」を今日の話として読ませてしまう。
+/atsuta/kinenbi_result.json
+  Cache-Control: no-cache, must-revalidate
+
+# 筐体画像そのもの。ファイル名は p-town の機種ID固定で中身が変わらないので長期キャッシュ。
+/atsuta/kishu/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Service Worker(2026-08-01新設)。ここが古いまま居座ると、オフライン用の
+# 仕組みを直しても端末に届かない。必ず毎回サーバーへ確認させる。
+/atsuta/sw.js
+  Cache-Control: no-cache, must-revalidate

@@ -1,0 +1,1478 @@
+/* iOSのテキスト自動拡大(Text Autosizing)を止める。これが効いていると表の文字が
+   指定pxより大きく描かれ、fitCardの段階縮小が効かずカードが画面を超えて
+   『閉じる』が切れる(2026-07-30谷川氏スクショ IMG_1410)。 */
+html,body{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+/* ライト/ダーク配色(2026-07-30夜谷川氏指示「背景色をライト/ダークで切替できるように」)。
+   島図セル自体の塗り色(差枚ヒートの意味を持つ色・xlsxのfill)とその文字色は一切変更しない
+   (heat_html.pyのcl["bg"]/cl["fc"]がある場合はインラインstyleで直接指定され、CSSのクラス指定
+   よりも常に優先されるため、下記の変数は「xlsx側で色指定の無いセル(通路・施設名等の素の黒文字/
+   白背景)」と、カード/表まわりのUI chromeにだけ効く)。 */
+:root{--bg-page:#ffffff;--board-bg:#ffffff;--text:#000000;--card-bg:#ffffff;
+      --sub-color:#666;--cap-color:#444;--border-th:#eee;--total-bg:#f4f1ea;
+      --total-border:#e2ddd2;--sub7-bg:#eef2f7;--wk-border:#c3cad6;--hl-bg:#fff3cd;
+      --closex-bg:#eef2f7;--closex-color:#1F3864;--toggle-bg:rgba(255,255,255,.9);
+      --grip-color:#c9ced6;
+      --toggle-color:#1F3864;--toggle-border:#c9d2de;
+      /* 操作ボタン(2026-07-31・アイコンのみの丸ボタンから文言付きのボタンへ刷新)。
+         島図の意味を持つ色(赤青)とぶつからない紺〜白のニュートラル配色にする。 */
+      --btn-bg1:#ffffff;--btn-bg2:#eef1f6;--btn-bd:#1F3864;--btn-fg:#1F3864;
+      --btn-sub:#3d4d68;--btn-accent:#1F3864;  /* 補足文言も薄グレーにしない(谷川氏の鉄則) */
+      --border-black:#000000;--border-dark:#3A3A3A;}
+:root[data-theme="dark"]{--bg-page:#121212;--board-bg:#121212;--text:#e8e8e8;--card-bg:#1e1e1e;
+      --sub-color:#aaaaaa;--cap-color:#bbbbbb;--border-th:#333333;--total-bg:#2a2a26;
+      --total-border:#4a463c;--sub7-bg:#1c2733;--wk-border:#3a4550;--hl-bg:#3a3420;
+      --closex-bg:#26344a;--closex-color:#9db3d6;--toggle-bg:rgba(30,30,30,.9);
+      --grip-color:#4a5160;
+      --toggle-color:#cfd8e6;--toggle-border:#3a4550;
+      --btn-bg1:#2b3546;--btn-bg2:#1d2532;--btn-bd:#8ab4f8;--btn-fg:#e8eefc;
+      --btn-sub:#c3d2ea;--btn-accent:#8ab4f8;
+      /* 2026-07-30(夜)谷川氏指示「ダークにしたときに罫線の色は暗めのグレーに」。島図の罫線は
+         ほぼ全て黒(#000000)またはそれに近い暗色(#3A3A3A)で塗られており、ダーク背景では
+         事実上見えなくなる(make_heat_html.pyの_BORDER_VARでこの2色だけCSS変数に差し替え済み)。
+         「暗めのグレー」という指示どおり、明るすぎない中間的なグレーに設定(白に近い明るいグレーだと
+         島図全体の罫線が浮き上がって見づらくなるため)。 */
+      --border-black:#5a5a5a;--border-dark:#6a6a6a;}
+body{margin:0;font-family:'Meiryo','MS PGothic','Hiragino Sans',sans-serif;background:var(--bg-page);}
+/* 塗り無し(bg=None)セルの赤/青/紺アクセント文字(プラス/マイナス等の意味を持つ色)。
+   ライトは元のxlsx色のまま・ダーク時だけ暗い背景でも読める明るい色に差し替える
+   (make_heat_html.pyのACCENT_DARK対応表と対になっている)。
+   .cell.acc-*と2クラス複合セレクタにして、後段の.cell{color:var(--text)}(単一クラス=
+   詳細度が同じ)より確実に優先されるようにする(宣言順に依存しない)。 */
+.cell.acc-red{color:#B42828;}
+.cell.acc-blue1{color:#1F5FB4;}
+.cell.acc-blue2{color:#3D6FB0;}
+.cell.acc-navy{color:#1F3864;}
+:root[data-theme="dark"] .cell.acc-red{color:#ff8a80;}
+:root[data-theme="dark"] .cell.acc-blue1,:root[data-theme="dark"] .cell.acc-blue2,:root[data-theme="dark"] .cell.acc-navy{color:#8ab4f8;}
+/* touch-action:manipulation(2026-08-01・第2段階): ダブルタップ拡大を自前で実装するため、
+   ブラウザ既定の「ダブルタップでズーム」だけを無効化する。ピンチズームとスクロールは残る
+   (auto から double-tap-zoom だけを引いた値。ついでにタップ後のクリック遅延も無くなる)。
+   自前で実装する理由は、既定のダブルタップズームが「文字ブロックの幅」に合わせて寄る仕様で、
+   島図のような絶対配置の格子では意図した場所・倍率にならないため。 */
+/* touch-action: 2026-07-31に manipulation → pan-x pan-y へ変更。
+   manipulationは「ダブルタップ拡大だけ禁止・ピンチはブラウザに任せる」なので、
+   島図の上でもブラウザのページズームが起きていた。pan-x pan-y は
+   「指1本の縦横スクロールだけブラウザに任せ、拡大は任せない」の意味。
+   島図のピンチはJS側(自前のzoomF)で受ける=「全体に戻す」で戻せるようにするため。 */
+/* touch-action: 2026-08-02に pan-x pan-y → pan-y へ変更(谷川氏報告「斜めに動かせない」)。
+   島図は **横=#wrap(overflow:auto) / 縦=ページ本体(文書)** と器が分かれている。
+   ブラウザは指1本のスクロールで器を1つだけ選ぶ(ラッチする)ので、両方をブラウザに
+   任せると斜めに払ったとき先に横が選ばれ、縦は最後まで1pxも動かない
+   (実測: 斜め払いで 横+158 / 縦+0。横だけ・縦だけなら両方動く)。
+   pan-y = 「縦スクロールだけブラウザに任せ、横は任せない」。横は app.js の
+   自前パン(慣性つき)が #wrap.scrollLeft を動かすので、縦と横が取り合いにならず
+   斜めがそのまま動く。
+   **縦をブラウザに残すのが要点**。一度は #wrap に height:100dvh を与えて縦横を同じ器に
+   まとめたが、それだとページ本体がスクロールしなくなり、iOS Safariが上下のツールバーを
+   引っ込めなくなって画面が狭くなった(2026-08-02谷川氏報告「狭く感じた」)。
+   島図の表示倍率・見かけの大きさは前後で同一(実測587×1020)だったので、原因は
+   可視領域そのものの減少と切り分けている。 */
+#wrap{overflow:auto;touch-action:pan-y;}
+
+/* ===== 資料(2026-08-04・谷川氏指示「横スクロールは無しで縦スクロールだけにして、
+   凡例・説明書・機種別出率・機能をボタンにする。更新履歴ボタン追加」) =====
+   それまでは島図と同じ盤面を縮小して見せていた(xlsxの写し)ため、印刷前提で横に
+   3つ並んだ表がそのまま出て横スクロールが要った。ここは中身から組み直した普通のHTML。
+   **横幅は画面に収める**(はみ出す要素を作らない)のがこの節の約束。 */
+/* **文字色を必ず自分で決める**(2026-08-05・谷川氏報告「資料がダークモードの配色だと
+   見づらい」の真因)。この入れ物は島図(#board)の外にあり、色を指定していなかったため
+   ブラウザ既定の黒のままだった。暗い地の上で黒=コントラスト1.26(ほぼ見えない)。
+   実測して直した(WCAGの相対輝度で計算。本文は4.5以上を目安にする)。 */
+#docsPanel{padding:10px 10px calc(var(--tbh,104px) + 24px);max-width:100%;
+  box-sizing:border-box;overflow-x:hidden;
+  color:var(--text,#000);background:var(--bg-page,#fff);min-height:100vh;}
+#docsPanel[hidden]{display:none;}
+#docsPanel .dsec{border:1px solid var(--border-th,#d8d8d8);border-radius:10px;
+  margin:0 0 8px;background:var(--card-bg,#fff);overflow:hidden;}
+#docsPanel .dsec>summary{list-style:none;cursor:pointer;padding:12px 14px;
+  min-height:44px;display:flex;align-items:center;gap:8px;
+  font-size:13.5px;font-weight:bold;line-height:1.35;}
+#docsPanel .dsec>summary::-webkit-details-marker{display:none;}
+#docsPanel .dsec>summary::before{content:"＋";font-size:13px;color:#1F3864;flex:0 0 auto;}
+#docsPanel .dsec[open]>summary::before{content:"−";}
+#docsPanel .dbody{padding:0 14px 12px;font-size:12.5px;line-height:1.6;}
+/* 開いた節を閉じるボタン(2026-08-06・谷川氏指示「資料の各項目の展開したら
+   最下部に展開を戻すボタンを入れる」)。機種別出率は59行あるので、閉じるために
+   見出しまで指で戻るのが手間だった。スペック側の「↑」と同じ役割・同じ見た目にそろえる。
+   幅いっぱいにするのは、長い一覧の末尾で狙わずに押せるようにするため。 */
+#docsPanel .dupbk{display:block;width:100%;min-height:36px;margin:10px 0 0;
+  border:1.5px solid var(--wk-border);border-radius:9px;background:var(--card-bg);
+  color:var(--btn-accent);font:bold 13px/1 inherit;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;}
+#docsPanel .dupbk:active{background:var(--sub7-bg);}
+/* 見出しに入りきらない注記(出率の計算式など)は中身の先頭へ小さく置く */
+#docsPanel .dnote{font-size:11px;line-height:1.55;color:var(--sub-color,#777);
+  background:var(--total-bg,#f5f5f5);border-radius:6px;padding:6px 8px;margin:0 0 8px;}
+/* 凡例: 色の四角と説明を1行ずつ */
+#docsPanel .dleg{list-style:none;margin:0;padding:0;}
+#docsPanel .dleg li{display:flex;align-items:center;gap:10px;padding:3px 0;}
+#docsPanel .dleg i{width:26px;height:16px;border-radius:3px;flex:0 0 auto;
+  border:1px solid rgba(0,0,0,.25);}
+/* 説明書・機能: 項目と内容の縦並び(横に並べると内容が潰れる) */
+#docsPanel .ddl{margin:0;}
+#docsPanel .ddl dt{font-weight:bold;margin:8px 0 2px;}
+#docsPanel .ddl dt:first-child{margin-top:2px;}
+#docsPanel .ddl dd{margin:0;color:var(--sub-color,#555);}
+/* 機種別出率: 1機種=1行のカード。7列の表は幅に入らないので折り返して積む */
+#docsPanel .drate{list-style:none;margin:0;padding:0;counter-reset:none;}
+#docsPanel .drate li{display:grid;grid-template-columns:26px 1fr auto;
+  grid-template-areas:"i n r" ". s y";gap:1px 8px;padding:7px 0;
+  border-bottom:1px solid var(--border-th,#eee);}
+#docsPanel .drate li:last-child{border-bottom:none;}
+#docsPanel .dr-i{grid-area:i;color:var(--sub-color,#888);font-size:11px;
+  text-align:right;padding-top:2px;}
+#docsPanel .dr-n{grid-area:n;font-weight:bold;}
+/* 機種名+メーカー系を1行に収める入れ物(2026-08-09・谷川氏指示)。長いのは機種名側だけ
+   ellipsisで縮め、メーカー系バッジは潰さない */
+#docsPanel .dr-nw{grid-area:n;display:flex;align-items:baseline;gap:6px;min-width:0;}
+#docsPanel .dr-nw .dr-n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+#docsPanel .dr-mk{flex:0 0 auto;font-size:10.5px;color:var(--sub-color,#777);
+  border:1px solid var(--border-th,#ccc);border-radius:4px;padding:0 4px;line-height:1.5;}
+#docsPanel .dr-r{grid-area:r;font-weight:bold;white-space:nowrap;}
+#docsPanel .dr-s{grid-area:s;font-size:11px;color:var(--sub-color,#777);}
+/* 累計差枚(2026-08-12・谷川氏指示)。符号の色は画面の他の差枚と同じ物差しにする */
+#docsPanel .dr-s .dr-p{color:#1F5FB4;}
+#docsPanel .dr-s .dr-m{color:#C0202A;}
+:root[data-theme="dark"] #docsPanel .dr-s .dr-p{color:#8ab4f8;}
+:root[data-theme="dark"] #docsPanel .dr-s .dr-m{color:#ff8a80;}
+#docsPanel .dr-y{grid-area:y;font-size:11.5px;font-weight:bold;white-space:nowrap;}
+/* 特定日(2026-08-11・谷川氏指示「一覧で一年通してみれるように1/1から順番に表形式で」)。
+   3列(日付/内容/対象)の表。**table-layout:fixed で列幅を固定する**=長い機種名や
+   キャラ名が来ても表が横へ伸びない(資料タブは横スクロールを作らないのが約束)。
+   日付は 12/31 まで入る幅、対象は 6em を上限にして残りを内容へ回す。 */
+#docsPanel .dtoku{width:100%;table-layout:fixed;border-collapse:collapse;
+  font-size:12px;line-height:1.5;}
+#docsPanel .dtoku td,#docsPanel .dtoku th{padding:5px 2px;vertical-align:top;
+  border-bottom:1px solid var(--border-th,#eee);word-break:break-word;}
+/* 列幅は colgroup で決める。td 側に書いても、table-layout:fixed は1行目(月の見出し=
+   4列ぶち抜き)しか見ないので効かない(2026-08-11)。日付は「12/31」が入る最小限にし、
+   空いたぶんは全部 名前の列へ回す=名前が折り返しにくくなる。 */
+/* 幅の配分(2026-08-11・谷川氏指示「機種名も折り返しができる限りないように」)。
+   幅390pxの端末で使えるのは約342px。日付32 + 画像38 を引いた残りを、
+   名前(12px・キャラ名や記念日名)と対象(10px・機種名)で分け合う。
+   対象は10文字が9割を占めるので104px(=10.4文字)を確保し、残りを名前へ回す。 */
+#docsPanel .dtoku col.tkc-d{width:2.5em;}
+#docsPanel .dtoku col.tkc-g{width:112px;}
+#docsPanel .dtoku col.tkc-i{width:34px;}
+/* 日付の決まっていない方の1列目は「毎月1・11・21・31日」と長いが、**ここは折り返してよい**
+   (谷川氏の指示は名前と機種名を折り返さないこと)。狭めたぶんを名前へ回す。 */
+#docsPanel .tk-cyc col.tkc-d{width:5.6em;}
+/* こちらの対象は「エンターライズ系」までなので、機種名の列も詰めて名前へ回す。
+   列が狭いぶん文字も9pxにする(「東京リベンジャーズ」が1行に収まる下限) */
+#docsPanel .tk-cyc col.tkc-g{width:88px;}
+#docsPanel .tk-cyc .tk-g{font-size:9px;letter-spacing:-.2px;}
+#docsPanel .tk-d{color:var(--sub-color,#777);white-space:nowrap;padding-right:0;
+  font-variant-numeric:tabular-nums;}
+#docsPanel .tk-t{font-weight:bold;padding-left:2px;}
+/* 名前が長い行だけ文字を詰める(列を広げると相手の列が折り返すため)。
+   12文字=11px / 14文字=10px / 16文字=9px。実測で
+   「アリサ・イリーニチナ・アミエーラ」(16文字)まで1行に収まる。 */
+#docsPanel .tk-t.s1{font-size:11px;letter-spacing:-.2px;}
+#docsPanel .tk-t.s2{font-size:10px;letter-spacing:-.3px;}
+#docsPanel .tk-t.s3{font-size:9px;letter-spacing:-.3px;}
+#docsPanel .tk-g.s1{font-size:9px;letter-spacing:-.2px;}
+/* 機種名は10pxまで落とす。表の主役は日付と名前で、対象は添えものなので、
+   ここを小さくして名前の幅を稼ぐ方が全体として読みやすい。 */
+#docsPanel .tk-g{font-size:10px;line-height:1.45;color:var(--sub-color,#777);
+  letter-spacing:-.1px;}
+/* 画像列は右端(2026-08-11・谷川氏指示)。列幅は固定で、無い行は空のまま詰めない
+   (詰めると行ごとに列の位置がずれて表に見えなくなる)。 */
+#docsPanel .tk-im{padding:3px 0 3px 2px;}
+#docsPanel .tk-im img{display:block;width:32px;height:32px;border-radius:5px;cursor:pointer;
+  background:var(--sub7-bg,#f2f2f2);}
+/* 顔は立ち絵の上の方だけを切り出す(中央で切ると胴体しか残らない)。
+   筐体は切らずに全体を入れる(切ると何の機種か分からない)。 */
+#docsPanel .tk-im img.tk-face{object-fit:cover;object-position:top;}
+#docsPanel .tk-im img.tk-mac{object-fit:contain;}
+/* 月の区切り。表の中の見出しなので、行全体を薄く塗って左に色帯を立てる */
+#docsPanel .dtoku .tk-m th{text-align:left;font-size:11.5px;padding:6px 4px 4px;
+  color:#1F3864;background:rgba(31,56,100,.07);border-bottom:none;
+  border-left:3px solid #1F3864;}
+/* 誕生日の印。記念日と見分けが付けば足りるので、色ではなく小さな字の枠で示す
+   (色だけに頼らない=資料タブの他の場所と同じ考え方) */
+#docsPanel .tk-b{display:inline-block;font-style:normal;font-size:9px;font-weight:bold;
+  border:1px solid var(--border-th,#ccc);border-radius:4px;padding:0 2px;margin-right:3px;
+  color:var(--sub-color,#777);vertical-align:1px;}
+/* 由来の行(既定は隠す)。押した行だけ出す */
+#docsPanel .dtoku .tk-w td{font-size:11px;line-height:1.55;color:var(--sub-color,#777);
+  background:rgba(31,56,100,.05);}
+#docsPanel .dtoku tr.tk-has{cursor:pointer;}
+#docsPanel .dtoku tr.tk-has .tk-t::after{content:"＋";font-size:9px;font-weight:normal;
+  color:var(--sub-color,#999);margin-left:5px;}
+#docsPanel .dtoku tr.tk-has.is-open .tk-t::after{content:"−";}
+/* 今日の行。左に印を立てて字も濃くする(色だけで示さない) */
+#docsPanel .dtoku tr.is-today td{background:rgba(255,196,0,.16);
+  border-top:1px solid #E8A400;border-bottom:1px solid #E8A400;}
+#docsPanel .dtoku tr.is-today .tk-d{color:var(--text);font-weight:bold;}
+#docsPanel .tk-ct{margin:14px 0 4px;font-size:11.5px;font-weight:bold;
+  color:var(--sub-color,#777);}
+/* 日付の決まっていない方は1列目が「毎月1・11・21・31日」なので折り返しを許す
+   (幅そのものは上の col.tkc-d で決めている) */
+#docsPanel .tk-cyc .tk-d{white-space:normal;}
+:root[data-theme="dark"] #docsPanel .dtoku .tk-m th{color:#8ab4f8;
+  background:rgba(138,180,248,.12);border-left-color:#8ab4f8;}
+:root[data-theme="dark"] #docsPanel .dtoku .tk-w td{background:rgba(138,180,248,.08);}
+:root[data-theme="dark"] #docsPanel .dtoku tr.is-today td{background:rgba(255,196,0,.2);}
+/* 東海のホールの年一・周年(2026-08-12・谷川氏指示)。上の特定日の表とは別の作り。
+   ホール名は「ZENT豊田本店・小阪・…」のように24店を並べた行があるので、
+   1行に収めようとせず**折り返してよい**形にする(左に日付と種別、右に店名と備考)。
+   クラスを .dtoku と分けてあるのは、資料の検証が .dtoku .tk-t の折り返し行数を
+   数えているため(混ぜると長いホール名で必ず落ちる)。 */
+#docsPanel .dhall{width:100%;table-layout:fixed;border-collapse:collapse;
+  font-size:12px;line-height:1.5;}
+#docsPanel .dhall col.hlc-d{width:4.2em;}
+#docsPanel .dhall td,#docsPanel .dhall th{padding:5px 3px;vertical-align:top;
+  border-bottom:1px solid var(--line,#ddd);}
+#docsPanel .dhall .hl-m th{text-align:left;font-size:11.5px;padding:6px 4px 4px;
+  color:#1F4E78;background:rgba(31,78,120,.08);border-left:3px solid #1F4E78;}
+#docsPanel .dhall .hl-d{white-space:nowrap;color:var(--sub-color,#777);}
+#docsPanel .dhall .hl-k{display:block;font-style:normal;font-size:10px;
+  margin-top:2px;padding:1px 4px;border-radius:3px;text-align:center;
+  background:rgba(120,120,120,.18);color:var(--text);}
+#docsPanel .dhall .hl-k.k-nen{background:rgba(232,164,0,.28);}
+#docsPanel .dhall .hl-k.k-shu{background:rgba(31,95,180,.22);}
+#docsPanel .dhall .hl-k.k-toku{background:rgba(120,120,120,.18);}
+#docsPanel .dhall .hl-h{word-break:break-all;}
+#docsPanel .dhall .hl-p{margin-left:5px;font-size:10.5px;
+  color:var(--sub-color,#888);white-space:nowrap;}
+#docsPanel .dhall .hl-w{margin-top:2px;font-size:11px;
+  color:var(--sub-color,#777);}
+#docsPanel .dhall tr.is-today td{background:rgba(255,196,0,.16);
+  border-top:1px solid #E8A400;border-bottom:1px solid #E8A400;}
+#docsPanel .hl-src{font-size:10.5px;color:var(--sub-color,#888);
+  margin:0 0 6px;word-break:break-all;}
+:root[data-theme="dark"] #docsPanel .dhall .hl-m th{color:#8ab4f8;
+  background:rgba(138,180,248,.12);border-left-color:#8ab4f8;}
+:root[data-theme="dark"] #docsPanel .dhall tr.is-today td{background:rgba(255,196,0,.2);}
+/* 来店・取材・景品・おすすめ機種(2026-08-12・谷川氏指示)。
+   東海のホールの年一(.dhall)と同じ「左に日付、右に中身」の作り。
+   本文は長いので折り返してよい=横スクロールは作らない(資料タブの約束)。 */
+#docsPanel .dtori{width:100%;table-layout:fixed;border-collapse:collapse;
+  font-size:12.5px;line-height:1.5;}
+#docsPanel .dtori col.tzc-d{width:4.6em;}
+#docsPanel .dtori col.tzc-n{width:8.4em;}
+#docsPanel .dtori td,#docsPanel .dtori th{padding:6px 3px;vertical-align:top;
+  border-bottom:1px solid var(--line,#ddd);}
+#docsPanel .dtori .tz-d{white-space:nowrap;color:var(--sub-color,#777);font-size:12px;}
+#docsPanel .dtori .tz-d span{display:block;font-size:10.5px;}
+#docsPanel .dtori .tz-b{word-break:break-all;}
+#docsPanel .dtori .tz-tag{display:inline-block;margin-left:5px;padding:1px 5px;
+  border-radius:4px;font-size:10.5px;background:rgba(31,95,180,.16);white-space:nowrap;}
+#docsPanel .dtori .tz-tag.tz-k{background:rgba(232,164,0,.22);}
+#docsPanel .dtori .tz-tag.tz-hot{background:rgba(232,72,60,.20);}
+#docsPanel .dtori .tz-p{margin-top:3px;font-size:11.5px;color:var(--text);}
+#docsPanel .dtori .tz-n{margin-top:3px;font-size:11px;line-height:1.55;
+  color:var(--sub-color,#777);}
+#docsPanel .dtori .tz-n.tz-sub{font-size:10.5px;}
+#docsPanel .dtori .tz-m th{text-align:left;font-size:11.5px;padding:6px 4px 4px;
+  color:#1F4E78;background:rgba(31,78,120,.08);border-left:3px solid #1F4E78;}
+#docsPanel .dkou .tz-kn{font-weight:bold;word-break:break-all;font-size:12px;}
+#docsPanel .dkou .tz-kv{font-size:11.5px;color:var(--sub-color,#777);word-break:break-all;}
+#docsPanel .dengsha{width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px;}
+#docsPanel .dengsha th{font-size:10.5px;font-weight:normal;color:var(--sub-color,#888);
+  padding:4px 2px;border-bottom:1px solid var(--line,#ddd);text-align:right;}
+#docsPanel .dengsha th:first-child{text-align:left;}
+#docsPanel .dengsha td{padding:5px 2px;border-bottom:1px solid var(--line,#eee);
+  text-align:right;vertical-align:top;}
+#docsPanel .dengsha .tz-en{text-align:left;font-weight:bold;word-break:break-all;}
+#docsPanel .dengsha .tz-en span{display:block;font-size:10px;font-weight:normal;
+  color:var(--sub-color,#888);}
+#docsPanel .dengsha .tz-c{font-size:11.5px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;}
+#docsPanel .fl-p{color:#1F5FB4;}
+#docsPanel .fl-m{color:#C0202A;}
+:root[data-theme="dark"] #docsPanel .dtori .tz-m th{color:#8ab4f8;
+  background:rgba(138,180,248,.12);border-left-color:#8ab4f8;}
+:root[data-theme="dark"] #docsPanel .fl-p{color:#8ab4f8;}
+:root[data-theme="dark"] #docsPanel .fl-m{color:#ff8a80;}
+/* 更新履歴: 日付を左に立てた時系列 */
+#docsPanel .dlog{list-style:none;margin:0;padding:0;}
+#docsPanel .dlog>li{position:relative;padding:0 0 12px 14px;
+  border-left:2px solid var(--border-th,#ddd);}
+#docsPanel .dlog>li:last-child{border-left-color:transparent;}
+#docsPanel .dlog>li::before{content:"";position:absolute;left:-6px;top:5px;
+  width:10px;height:10px;border-radius:50%;background:#1F3864;}
+#docsPanel .dlh{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:3px;}
+#docsPanel .dld{font-size:11.5px;color:var(--sub-color,#777);}
+#docsPanel .dlt{font-weight:bold;}
+#docsPanel .dlg{font-size:10.5px;font-weight:bold;border-radius:999px;
+  padding:1px 7px;background:rgba(31,56,100,.12);color:#1F3864;}
+#docsPanel .dlog ul{margin:0;padding-left:18px;color:var(--sub-color,#555);}
+#docsPanel .dlog ul li{margin:1px 0;}
+#docsPanel .dempty{padding:20px;text-align:center;color:var(--sub-color,#888);}
+/* 暗い配色では節の箱(#1e1e1e)と地(#121212)の差が小さいので、枠を少し強める */
+:root[data-theme="dark"] #docsPanel .dsec{border-color:#3a3a3a;}
+:root[data-theme="dark"] #docsPanel .dlg{background:rgba(138,180,248,.2);color:#8ab4f8;}
+:root[data-theme="dark"] #docsPanel .dsec>summary::before{color:#8ab4f8;}
+:root[data-theme="dark"] #docsPanel .dlog>li::before{background:#8ab4f8;}
+/* 2026-07-30実機報告「右/下に無限スクロールできて真っ白になる」の原因と対策:
+   CSS transform:scale() は見た目だけを縮小し、レイアウト上のサイズ(祖先のスクロール可能領域の
+   計算に使われる値)は原寸のまま変わらない。#boardを直接#wrapの子にしていたため、#wrapの
+   overflow:autoは縮小前の原寸(#(W)×#(H)px)をスクロール範囲として認識し、見た目の小さい
+   コンテンツの外側に巨大な空白のスクロール余地が生まれていた。
+   対策: #board を #stage(見た目どおりの実寸をJSで指定・overflow:hidden) で包む。#board自体は
+   position:absoluteで原寸のままtransform-scaleするが、#stageの境界でクリップされるため、
+   祖先(#wrap)から見えるスクロール可能領域は#stageの実寸(=見た目の寸法)に一致する。 */
+#stage{position:relative;overflow:hidden;}
+#board{position:absolute;left:0;top:0;background:var(--board-bg);transform-origin:0 0;}
+/* ズームボタン(全体/幅/＋/−)は2026-07-30谷川氏指示で削除。ズームは指のピンチ操作のみ。
+   下部の「台番をタップ→…」ヒント帯も2026-07-30(夜)谷川氏指示で削除(固定UIは無しにする)。 */
+/* セルの寸法は --cw/--ch(生成側が入れる素の寸法)に --ov を足したもの。--ov は
+   「隣のセルとどれだけ重ねるか」で、盤面の倍率から app.js が逆算して #board に配る
+   (2026-08-04・谷川氏報告「拡大では消えたが全台表示だと薄く継ぎ目が残る」)。
+   盤面はCSS transformで縮小するので、盤面px固定の重なりはフィット表示で足りなくなる。
+   画面上で一定(約0.8px)になるようにすれば、どの倍率でも隙間が出ない。 */
+.cell{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;
+      width:calc(var(--cw,0px) + var(--ov,0.6px));height:calc(var(--ch,0px) + var(--ov,0.6px));
+      line-height:1.1;overflow:hidden;box-sizing:border-box;color:var(--text);
+      white-space:pre-wrap;word-break:break-all;}
+/* 罫線(2026-08-02)。セルの枠ではなく独立した線の要素として盤面に置く。
+   こうしないと「境界の両側にセルがあるので二重になる」「結合セルの一部の列にだけ
+   線が要る場合を表現できない」が解けず、太さをそろえてもばらつきが残る。
+   セルより後ろのDOMに置く=塗りの上に線が乗る。
+   ただし**DOM順だけでは足りない**(2026-08-02・谷川氏報告「まだ色付き機種毎の境界線が
+   見えづらい」「沖ドキDUOの左側の外側の罫線が細い」の真因)。機種名ラベルなど折り返さない
+   セルは、はみ出し表示のために inline で z-index:2 を持っている。線は境界から内側へ
+   太さぶん伸びるので、**隣がラベルだと線がラベルの塗りに覆われて消える**。
+   ・ラベル同士が隣り合う境界(ヤバチバ|ビッグドリーム)は線が全部隠れて見えない
+   ・島の外周(沖ドキDUOの左)はラベルの行だけ隠れ、台番の行だけ残るので「細い」に見える
+   そこで線は z-index:3 = ラベル(2)より前・強調表示(タップ中5/絞り込み6/ピン7/検索8)より
+   後ろに置く。強調の枠は線の上に出したいので、この間の値であることが重要。 */
+.ln{position:absolute;pointer-events:none;z-index:3;}
+.tap{cursor:pointer;}
+.tap:active{outline:3px solid #ff9800;z-index:5;}
+/* 検索で見つけた台の一時強調(2026-08-01・第2段階)。拡大してスクロールした直後に
+   「画面のどこを見ればよいか」を示す。拍動は3回で止める(点滅し続けると読む邪魔になる)。
+   絞り込みの黄色(#ffca28)より強いオレンジ(#ff9800)にして、「該当した台(黄)」の中の
+   「今飛んだ1台(橙)」が区別できるようにした。 */
+@keyframes hitpulse{0%{box-shadow:0 0 0 0 rgba(255,152,0,.9);}100%{box-shadow:0 0 0 16px rgba(255,152,0,0);}}
+.tap.hitfocus{outline:3px solid #ff9800;outline-offset:-3px;z-index:8;animation:hitpulse 1s ease-out 3;}
+/* 全体に戻すボタン(2026-08-01)。ダブルタップで拡大した後、周りが台番セルで埋まっていると
+   「背景をダブルタップして戻る」場所が見つからないことがあるため、拡大中だけ出す逃げ道。
+   下部ツールバーの上・右寄せ(親指の届く位置)。当たり判定は44px以上。 */
+#zoomOut{position:fixed;right:12px;bottom:calc(var(--tbh,104px) + 12px);z-index:70;display:none;
+  min-height:44px;padding:0 16px;border:none;border-radius:22px;
+  background:rgba(31,56,100,.94);color:#fff;font-size:13px;font-weight:bold;
+  box-shadow:0 6px 20px rgba(0,0,0,.3);align-items:center;gap:6px;
+  -webkit-tap-highlight-color:transparent;}
+#zoomOut.show{display:flex;}
+#zoomOut svg{width:17px;height:17px;}
+:root[data-theme="dark"] #zoomOut{background:rgba(138,180,248,.96);color:#10161f;}
+/* 島図に浮かせていた凡例(2026-08-01新設・左下の「吸—出」の細い色帯)は
+   2026-08-06に削除した(谷川氏指示「吸出の凡例の画像は削除」)。台番セルに重なるため。
+   色の意味は「資料」タブの凡例表で見る。切替(#legendSw)だけそちらへ移した。 */
+/* 拡大中の現在地(2026-08-01新設)。拡大すると機種名ラベルが画面外へ出てしまい、
+   どの島を見ているのか分からなくなる。画面中央にある台から機種名と台番を拾って上に出す。
+   フィット表示のときは全体が見えているので出さない(常時出すと邪魔になる)。 */
+#whereChip{position:fixed;z-index:56;left:50%;transform:translateX(-50%);
+  top:calc(env(safe-area-inset-top) + 8px);display:none;max-width:84vw;
+  background:rgba(31,56,100,.92);color:#fff;border-radius:14px;padding:4px 10px;
+  font-size:11.5px;font-weight:bold;line-height:1.4;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 8px rgba(0,0,0,.25);
+  pointer-events:none;}
+#whereChip.show{display:block;}
+/* 色だけに頼らない表示(2026-08-01新設)。店内の明るさ・端末の色味・色覚特性で
+   青赤の濃淡は読み違えが起きる。台番セルの左上に「↑↑ ↑ − ↓ ↓↓」の記号を重ねて、
+   色を見なくても大小が分かるようにする。既定は切(情報量が増えるため)。
+   2026-08-06に浮かせた凡例を消したので、置き場所は資料タブの凡例の末尾。 */
+#legendSw{display:flex;margin-top:8px;padding-top:7px;border-top:1px solid var(--wk-border);
+  font-size:11px;color:var(--text);align-items:center;gap:8px;white-space:nowrap;}
+#legendSw .sb{min-height:26px;padding:3px 10px;font-size:11px;font-weight:bold;
+  border:1px solid var(--wk-border);border-radius:12px;background:var(--card-bg);
+  color:var(--text);font-family:inherit;}
+#legendSw .sb.is-on{background:#1F3864;color:#fff;border-color:#1F3864;}
+.tap .mk{position:absolute;left:1px;top:0;font-size:7px;font-weight:bold;line-height:1;
+  letter-spacing:-0.5px;opacity:.85;pointer-events:none;display:none;}
+body.marks .tap .mk{display:block;}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:100;}
+/* max-height: 21日表+グラフを1画面に収めるため82vh→92vh(2026-07-30)。縦を広く取れる分
+   fitCardが選ぶ表の文字サイズも大きくできる。 */
+/* シート化(2026-08-01・第3段階)。画面中央に浮かぶカードから、画面の端に幅いっぱいで
+   貼り付くシートへ変更した。島図が残って「どの台を見ているか」が視界から消えないのが狙い。
+   2026-08-01(谷川氏指示「台番タップ時のカードが下に配置されているのを上に配置」):
+   貼り付き先を下端から**上端**へ変更した。下端に貼るとシートが下部固定ツールバー
+   (期間切替・検索・絞り込み)の上に完全にかぶさり、カードを開いたままでは期間を
+   切り替えられなかった。上端に寄せると島図の下半分とツールバーが両方見える。
+   位置/サイズはJS(positionOverlayCard の sheet モード)が可視領域(visualViewport)基準で
+   書き換えるので、ここでの指定はJS実行前のフォールバック。
+   transform-origin:top left = ピンチズーム打ち消しのscaleを掛けても上端と左端が動かない。 */
+#card{background:var(--card-bg);color:var(--text);border-radius:0 0 18px 18px;width:100%;max-width:none;max-height:92vh;overflow:auto;
+      position:absolute;left:0;top:0;bottom:auto;transform-origin:top left;
+      /* つまみを下部へ移したぶん、見出し行が画面の縁に貼り付かないよう上に少し空ける
+         (2026-08-01。以前はつまみの11pxがこの余白を兼ねていた。ここを大きく取ると
+         fitCardが1段下のグラフ高さを選ぶので、つまみの上下余白と合わせて
+         「移設前のつまみ11px」と同じ合計に収めてある=グラフ高さは不変)。 */
+      padding-top:calc(env(safe-area-inset-top) + 3px);
+      box-shadow:0 8px 30px rgba(0,0,0,.4);
+      /* iOS Safariは「transformされた祖先の中のoverflow:auto」でタッチスクロールが
+         効かない/引っかかることがある(2026-07-30実機報告「3週間1日平均が見切れる」=
+         はみ出た分をスクロールで見せられていなかった可能性)。momentum scrollを明示。 */
+      -webkit-overflow-scrolling:touch;
+      /* デバウンス後の1回の位置/サイズ補正を滑らかにする(2026-07-30「ブルブル」対策の一部・
+         トランジション自体は0.15秒=デバウンス間隔と揃え、次の補正と重ならないようにした)。
+         2026-07-31修正: width と max-height はトランジション対象から外した。この2つは
+         fitCard()が「収まる文字サイズ」を決めるための計測対象(getComputedStyleのmax-height・
+         実幅に依存するscrollHeight)であり、トランジション中は計測値が遷移前の古い値を返すため、
+         初回タップ時だけfitCardが大きすぎる高さを前提に判断し3週間の集計行がはみ出していた
+         (谷川氏の画面録画で確認。閉じて開き直すとinline値が既に同値=遷移が起きず直る、
+         という症状もこれで説明がつく)。計測に使う寸法プロパティはアニメーションさせない。 */
+      transition:left .15s ease,bottom .15s ease,transform .15s ease;}
+/* せり出しと、指で上げて閉じる動き(2026-08-01)。
+   上端貼り付きへ変えたので、出てくる向きも「上から下りてくる」へ反転した
+   (出てくる向きと閉じる向きが逆だと、どちらへ払えば消えるのかが分からなくなる)。
+   ドラッグ中は追従を鈍らせないようtransitionを切る(.dragging)。 */
+#card.sheet-in{animation:sheetup .26s cubic-bezier(.22,.9,.3,1);}
+@keyframes sheetup{from{transform:translateY(-100%);}to{transform:translateY(0);}}
+#card.dragging{transition:none;}
+/* つまみ(2026-08-01・谷川氏指示「カードの上部つまみを下部に移設」)。
+   上端貼り付きのシートなので、動かせる辺は「下」=自由端。つまみは自由端に置くのが
+   形と動きの対応が取れる(下の縁を掴んで上へ押し上げると引っ込む)。上端は画面の縁に
+   固定されていて動かないので、そこにつまみがあると掴んでも動かせる気がしない。
+   sticky bottom にすることで、表が長くてカードがスクロールする期間(全期間=53行)でも
+   常にカードの下端に見えている。 */
+/* 上下の余白は詰める。カード高さの余裕は実測でわずか1.8pxしか無く(fitCardは
+   scrollHeight<=maxHeight-32で段を決める)、ここで数px増やすだけでグラフが1段
+   小さくなる。見た目のバーは薄いままでよい=掴める面積は下の#gripExtが受け持つ。 */
+#cardGrip{position:sticky;bottom:0;z-index:3;background:var(--card-bg);
+  padding:1px 0 2px;cursor:grab;touch-action:none;}
+#cardGrip::before{content:"";display:block;width:40px;height:5px;border-radius:3px;
+  margin:0 auto;background:var(--grip-color);}
+#card h2{padding-top:2px;position:relative;}
+/* つまみの当たり判定の延長(2026-07-31谷川氏指示「つまみのあたり判定を大きく」・
+   2026-08-01の下部移設でつまみの「真上」へ付け替え)。
+   つまみ自体を厚くするとカードが高くなり、fitCardが1段下のグラフ高さを選ぶ=折れ線が
+   小さくなる(段差8〜12px)。「グラフを大きく」の指示と衝突するので、高さは増やさずに
+   掴める面積だけを増やす方式を維持する。
+   bottom:100% でつまみの真上に34pxの透明な帯を重ねる(絶対配置なのでカード高さは不変)。
+   帯の下に来るのは表の最終行あたりで、押せる物は無い。表は見えたまま=隠さない。 */
+#gripExt{position:absolute;left:0;right:0;bottom:100%;height:34px;z-index:1;
+  background:transparent;cursor:grab;touch-action:none;}
+/* 選択中のマーカーの光(2026-08-01谷川氏指示「マーカーの周りを黄色くして点滅」→
+   同日「ゆっくり点滅で、中心から外側へ向かって黄色が薄くなるデザイン」)。
+   輪(線)ではなく放射状グラデーション(#selGrad)の塗りで、中心が濃く外へ向けて透明になる。
+   丸そのものの色は変えない(極値の青/赤という意味を壊さないため)。
+   点滅はゆっくり(2.4秒)。完全には消さず薄く残す=光がちらついて見えないようにする。 */
+#chart #selHalo{animation:selpulse 2.4s ease-in-out infinite;}
+@keyframes selpulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+/* 表とグラフを1画面に収めるため、文字サイズ・行の詰まり・グラフ高さはJS(fitCard)が
+   可変で決める(--tfs/--tpad/--chh)。21日表は既定サイズでは画面に収まらないため
+   2026-07-30谷川氏指示「表が画面内に収まるサイズに」への対応。 */
+#card{--tfs:12.5px;--tpad:3px;}
+/* 台番見出しは13px(2026-07-30谷川氏指示「台番を少し小さくして分をグラフに回す」)。
+   浮いた縦幅はfitCardがグラフ高さ優先で使う。 */
+#card h2{font-size:13px;margin:0;padding:2px 12px 1px;}
+/* 見出し行は横並びを崩さない(2026-08-01・谷川氏報告「3週間だけ一行さがってる」)。
+   ボタンはfloat:rightだったので、タイトルが1文字でも入りきらないとボタンの「下」へ
+   回り込み、見出しが2行になって期間ごとに位置がずれていた(3週間はいちばん長い)。
+   PC側の実測では12.5px余っていたのに実機で回り込んだのは、iOSと検証環境でフォントが
+   違い文字幅が変わるため。**幅の余裕に頼る作りをやめる**=回り込みが構造的に起きない
+   ようにする。入りきらないときはJS(fitTitle)が文字を0.5pxずつ詰める。
+   flexにするとボタン(28px)がそのまま行の高さになり、見出し行が23→31pxへ増えて
+   グラフが1段小さくなる(float時代はボタンが行からはみ出して高さに数えられていなかった)。
+   そこで**タイトルをblock＋overflow:hiddenにして独立した整形文脈(BFC)にする**。
+   BFCはフロートの下へ回り込まず、残った幅にぴったり収まる=行の高さは元のまま。 */
+#mtitle{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+/* 機種名の行。2026-08-04に11.5px→10.5pxへ(左上の筐体写真を大きくしたぶんを吸収する。
+   写真の幅だけ左が詰まるので、文字を小さくしないと長い機種名が2行に割れる)。 */
+#card .sub{color:var(--sub-color);font-size:10.5px;padding:0 12px 3px;line-height:1.25;}
+#card table{width:100%;border-collapse:collapse;font-size:var(--tfs);font-variant-numeric:tabular-nums;}
+/* 2026-07-30谷川氏指示「行間の余白を少し詰める」: line-height純減で1行あたり1〜2px縮む
+   (21行×2px=最大40px超の余裕を生む。文字サイズ自体は変えず視認性を落とさない)。 */
+#card th,#card td{padding:var(--tpad) 8px;text-align:right;border-top:1px solid var(--border-th);line-height:1.05;}
+#card th:first-child,#card td:first-child{text-align:left;}
+#card thead th{background:#1F3864;color:#fff;border:none;font-size:calc(var(--tfs) - 1px);
+  position:sticky;top:0;}
+#card tr.total td{font-weight:bold;background:var(--total-bg);border-top:1px solid var(--total-border);}
+#card tr.total.top td{border-top:2px solid #1F3864;}
+#card tr.sub7 td{background:var(--sub7-bg);}    /* 直近7日=島図の色塗りと同じ期間なので色を分ける */
+.plus{color:#1565c0;font-weight:bold;}.minus{color:#c62828;font-weight:bold;}
+/* 曜日の色分け(2026-07-31谷川氏指示「(土)は青、(日)は赤」)。カレンダーと同じ慣習。
+   日付部分(7/25)は既定色のままで、かっこ付き曜日「(土)」「(日)」だけを着色する
+   (差枚列のプラス青/マイナス赤と混同しないよう、色を塗る範囲を曜日に限定した)。
+   ダーク時は差枚以外のアクセント文字と同じ明るい代替色(#8ab4f8/#ff8a80)にする。 */
+#card td .sat{color:#1565c0;font-weight:bold;}
+#card td .sun{color:#c62828;font-weight:bold;}
+:root[data-theme="dark"] #card td .sat{color:#8ab4f8;}
+:root[data-theme="dark"] #card td .sun{color:#ff8a80;}
+/* 3週間グラフ(2026-07-30追加)。1系列=凡例なし・極値のみ直接ラベル・罫線は控えめ。
+   符号は色(青+/赤−)と棒の向き(0線の上下)の二重符号化=色だけに依存しない。 */
+#card .cap{font-size:11px;color:var(--cap-color);padding:0 12px 1px;}
+/* 今日の午前中の実数(2026-08-11)。台の行と機種合計の行を縦に並べる。
+   スマホで横に出さない=項目名を小さく前置きし、値だけを大きく読ませる。 */
+#mhiru{margin:2px 12px 4px;padding:6px 8px;border:1px solid var(--border-th);
+  border-radius:8px;background:var(--total-bg);}
+#mhiru .hh{font-size:11px;color:var(--cap-color);margin-bottom:3px;}
+/* 台と機種合計を縦に並べた表(2026-08-11・谷川氏指示「表形式にして視覚的にみやすく」)。
+   1列目=項目・2列目=その台・3列目=機種の合計。数字は右そろえで桁を見比べやすくする。 */
+#mhiru .htbl{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+#mhiru .htbl table{width:100%;border-collapse:collapse;font-size:12.5px;
+  font-variant-numeric:tabular-nums;}
+/* 左右の余白も字に連動させる(2026-08-11)。px 固定だと 7列ぶんの 56px がそのまま残り、
+   字だけ縮めても幅320pxで収まらなかった。 */
+#mhiru .htbl th,#mhiru .htbl td{padding:2px .32em;text-align:right;white-space:nowrap;}
+/* 台と機種計の区切りに縦線(2026-08-11・谷川氏指示「縦線もいれて見やすく」)。
+   1列目(項目名)の右と、台の3列ぶんの右に引く。 */
+#mhiru .htbl th:nth-child(1),#mhiru .htbl td:nth-child(1){
+  border-right:1px solid var(--border-th);}
+#mhiru .htbl tr.h1 th:nth-child(2),
+#mhiru .htbl tr:not(.h1) th:nth-child(4),
+#mhiru .htbl tr:not(.h1) td:nth-child(4){border-right:1px solid var(--border-th);}
+#mhiru .htbl tr.h1 th{text-align:center;border-bottom:1px solid var(--border-th);}
+/* 見出し・注記の字は表の字に**連動**させる(2026-08-11)。px で固定していたときは
+   fitHiru が表を縮めても「回数／内容／推定設定」の見出しが列幅の下限を作ってしまい、
+   幅320pxで58pxはみ出したままだった(実測)。em にすると一緒に縮む。 */
+#mhiru .htbl tr.h2 th{font-size:.8em;color:var(--cap-color);font-weight:600;
+  border-bottom:1px solid var(--border-th);}
+#mhiru .htbl td.hc{color:var(--cap-color);font-size:.92em;}
+#mhiru .htbl td.hs{text-align:center;}
+/* 字を9pxまで小さくしても収まらないときに fitHiru が足す(2026-08-13・谷川氏報告
+   「内容詳細の方が見切れていて横スクロールしないと見れない」)。余白と、数字に
+   ぶら下がっている推定設定の飾りを詰める。**列は削らない**=中身はそのまま残す。 */
+#mhiru .htbl.tight th,#mhiru .htbl.tight td{padding:2px .14em;}
+#mhiru .htbl.tight .hb{margin-left:1px;font-size:.9em;}
+#mhiru .htbl.tight td.hc{font-size:.86em;}
+#mhiru .htbl.tight tr.h2 th{font-size:.72em;}
+/* 詳細一覧(たたんでおく) */
+#mhiru .hdet{margin-top:4px;}
+#mhiru .hdet>summary{font-size:11.5px;color:var(--cap-color);cursor:pointer;
+  padding:2px 0;}
+/* 期間ごとの詳細(2026-08-12・谷川氏指示「開いた時は折り畳まれていて、詳細ボタンを
+   押したら見られる形に」)。畳んでいる間はこの1行だけなので、カードが縦に伸びない。
+   押す所だと分かるよう、他のたたみ見出しより字を強く・高さを持たせる。 */
+#mhiru .mdet{margin-top:0;}
+#mhiru .mdet>summary{font-size:12.5px;font-weight:bold;color:var(--text);
+  padding:5px 2px;min-height:30px;display:flex;align-items:center;gap:5px;
+  list-style:none;-webkit-tap-highlight-color:transparent;}
+#mhiru .mdet>summary::-webkit-details-marker{display:none;}
+#mhiru .mdet>summary::before{content:"▶";font-size:10px;color:var(--cap-color);}
+#mhiru .mdet[open]>summary::before{content:"▼";}
+#mhiru .mdet .hh{margin-top:2px;}
+/* 項目名は「ブドウ／適当」のように2行になることがあるので幅を持たせ、行間を詰める */
+#mhiru .htbl tr>th:first-child{text-align:left;color:var(--cap-color);
+  font-weight:600;width:5.4em;line-height:1.25;}
+#mhiru .htbl tr>th:first-child .hp{font-size:10px;font-weight:500;}
+#mhiru .htbl tr:first-child th{color:var(--cap-color);font-weight:700;
+  border-bottom:1px solid var(--border-th);}
+#mhiru .htbl tr:first-child th:nth-child(3){max-width:9.5em;overflow:hidden;
+  text-overflow:ellipsis;}
+/* 色は表の当日差枚と同じ物差し(.plus/.minus)を使う=画面の中で符号の色が食い違わない */
+/* 推定設定の丸数字。数字の後ろに小さく添える(色は付けず、字面で分かるようにする) */
+#mhiru .hb{margin-left:3px;font-size:11.5px;font-weight:700;}
+#mhiru .est{color:var(--cap-color);font-size:10.5px;}
+/* 判別結果を画像で保存(2026-08-12・谷川氏指示)。表のいちばん下に置く
+   (見終わってから押すものなので、上に置くと数字より先に目に入って邪魔になる)。
+   押しやすさは他のボタンと同じ44px以上。 */
+#mhiru .hsave{margin-top:6px;padding-top:6px;border-top:1px dotted var(--border-th);}
+#mhiru .hsave button{display:flex;align-items:center;justify-content:center;gap:6px;
+  width:100%;min-height:44px;border:1px solid var(--border-th);border-radius:10px;
+  background:var(--total-bg);color:var(--text);font-size:13px;font-weight:bold;
+  font-family:inherit;-webkit-tap-highlight-color:transparent;}
+#mhiru .hsave button:active{opacity:.7;}
+#mhiru .hsave svg{width:17px;height:17px;flex:0 0 auto;}
+#mhiru .hp{color:var(--cap-color);font-size:11px;}
+/* 設定別の数字。段数は機種で違う(ハナハナは①〜④＋設定V)ので列数を決め打ちしない。
+   幅320pxでも横に出ないよう、はみ出す時だけこの枠の中で横に送る。 */
+#mhiru .hset{margin-top:4px;padding-top:4px;border-top:1px dotted var(--border-th);
+  overflow-x:auto;-webkit-overflow-scrolling:touch;}
+#mhiru .hset table{border-collapse:collapse;font-size:10.5px;
+  font-variant-numeric:tabular-nums;white-space:nowrap;}
+#mhiru .hset th,#mhiru .hset td{padding:1px 4px;text-align:right;}
+#mhiru .hset th{color:var(--cap-color);font-weight:600;}
+#mhiru .hset tr th:first-child{text-align:left;padding-right:6px;}
+#chart{padding:1px 6px 2px;}
+/* 縦横比はviewBox(fitCardが可変で決める)側で調整するので、ここは幅いっぱい+高さ自動 */
+#chart svg{display:block;width:100%;height:auto;}
+#chart rect.hit{cursor:pointer;}
+#card tr.wk td{border-top:2px solid var(--wk-border);}
+#card tr.hl td{background:var(--hl-bg);}
+/* 閉じる手段はヘッダー右上の✕(通常フロー=崩れない)と背景タップの2系統。
+   下端の閉じるバーは廃止(2026-07-30谷川氏指示。position:sticky版がiOSの
+   transform配下でカード中腹のグラフに貼り付く実害があった系譜の根絶)。 */
+/* 閉じるボタンは指で押す前提なので44px以上を確保する(2026-07-31・第1段階。
+   Appleのヒットターゲット44pt / WCAG 2.5.5の44x44pxに合わせた)。見た目の高さは
+   従来どおり細くしたいので、padding ではなく min-height と行揃えで確保する。 */
+/* 2026-08-01谷川氏指示「台番タップ時の画面内のボタンを小さくして、折れ線グラフを
+   その分大きく」。当たり判定はAppleの44ptからは下がるが、WCAG 2.5.8(AA)の24x24pxは
+   満たす34px。カード内は指を大きく動かさずに押せる位置なので、ここは面積より
+   「グラフが読めること」を優先する判断。 */
+/* 2026-08-04: 左上の筐体写真を2行ぶんの大きさにするため、ボタンの横幅を少し削って
+   見出しへ回した(谷川氏指示「他の文字やボタンを小さく調整して」)。
+   高さ28pxは触らない(押しやすさに直結するため)。 */
+#closex{float:right;border:none;background:var(--closex-bg);color:var(--closex-color);font-size:11.5px;
+        font-weight:bold;border-radius:8px;padding:1px 7px;margin-left:6px;
+        min-height:28px;min-width:58px;}
+/* 共有ボタン(2026-08-01・第3段階)。今見ている状態(期間・ビュー・検索語・開いている台番・
+   グラフ期間)はURLに入るので、そのURLをそのまま人に送れるようにする。
+   ホーム画面から開いたPWA(display=standalone)はアドレスバーが無く、自分ではURLを
+   取り出せない。だから共有手段は画面の中に無いと成立しない。 */
+#shareBtn{float:right;border:none;background:var(--total-bg);color:var(--text);font-size:10.5px;
+        font-weight:bold;border-radius:8px;padding:1px 6px;margin-left:6px;
+        min-height:28px;min-width:48px;display:inline-flex;align-items:center;gap:3px;
+        justify-content:center;-webkit-tap-highlight-color:transparent;}
+#shareBtn svg{width:12px;height:12px;}
+/* ピン留め(2026-08-01新設)。気になる台を覚えて、翌日以降も1タップで飛べるようにする。
+   カードの見出しに置く=その台を見ている最中に付け外しできる。大きさは共有ボタンに合わせる。 */
+/* 見出しは横幅の取り合いになる場所(台番+期間の文字が入る)。★は記号1文字なので
+   最小限の幅にする=見出しに回せる幅を削らない(検証[7]で実際に足りなくなった)。 */
+#pinBtn{float:right;border:none;background:var(--total-bg);color:var(--sub-color);
+  font-size:13px;font-weight:bold;border-radius:8px;padding:1px 5px;margin-left:5px;
+  min-height:28px;min-width:28px;font-family:inherit;
+  -webkit-tap-highlight-color:transparent;}
+/* ★の点灯色はアプリの基調色(紺#1F3864・下部バーの選択中チップやカード見出しと同じ)に
+   そろえる(2026-08-02)。黄のままだと絞り込みのハイライトと同じ色で機能が紛らわしい。
+   島図側の印は彩度ゼロの二重罫なので、こちらと色を合わせる必要はない(別の役割)。 */
+#pinBtn.is-on{background:#1F3864;color:#fff;}
+/* 絞り込みの一覧から開いたときだけ出る戻り口(2026-08-12・谷川氏指示)。
+   ほかのボタンは右に寄せてあるが、これは**戻る**なので左端に置く
+   (iPhoneの戻ると同じ位置=迷わない)。 */
+#backFilter{float:left;border:none;background:#ffca28;color:#241d05;font-size:11px;
+  font-weight:bold;font-family:inherit;border-radius:12px;padding:3px 9px;
+  min-height:26px;margin-right:6px;-webkit-tap-highlight-color:transparent;}
+#backFilter[hidden]{display:none;}
+:root[data-theme="dark"] #backFilter{background:#ffca28;color:#241d05;}
+/* 島図側の印(2026-08-02)。経緯を残す。
+   [1回目] 旧実装は「左上の黄色い7pxの三角」。**盤面はCSS transformで縮小表示される**ので
+   中に書いたpxも同じだけ縮む。フィット表示は実測0.226倍(台番セルの生寸法93×53px→画面上
+   21×12px)で、7pxの三角は画面上1.6px=事実上描かれていなかった。倍率に追従させる仕組み
+   (`calc(… / var(--zsc))`・--zscはsetView()が毎回配る)を入れて解決した。
+   [2回目] 紫の枠+白いふち+光+三角にしたところ「見やすいがダサい」(谷川氏)。
+   デザイン評価も同じ指摘で、理由は3つ:
+     ・1つの状態に4つの装飾を重ねている(足しすぎ=ノイズ)
+     ・光彩(グロウ)は古い表現に見え、情報密度の高い一覧では特にうるさい
+     ・**紫がヒートの色を濁らせる**。塗りの色は差枚という意味を持つデータなので、
+       その上に色を被せる装飾はデータビジュアライゼーションとして筋が悪い
+   [結論] 装飾を引いて「白+黒の二重罫」だけにした(彩度ゼロ=ヒートの色に一切干渉しない・
+   明度差だけで浮かせる)。外から順に 白1px → 黒1.6px。**色に頼っていないので色覚多様性にも
+   そのまま対応する**(形や色の追加が要らない)。黄=絞り込み/検索、橙=タップ中/ジャンプ先、
+   という既存の色分けとも取り合わない。 */
+.tap.pinned{box-shadow:inset 0 0 0 calc(1px / var(--zsc,1)) #fff,
+                       inset 0 0 0 calc(2.6px / var(--zsc,1)) #14161a;
+  z-index:7;}
+#pinBox{padding:6px 12px 10px;}
+#pinBox .pinHd{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  font-size:12px;font-weight:bold;color:var(--sub-color);padding:4px 0;}
+/* 「すべて外す」(2026-08-02)。ピンが1件も無いときは出さない。2度押しの待機中は
+   赤くして、押すと消えることが分かるようにする。 */
+#pinClear{border:none;background:none;font-family:inherit;font-size:12px;font-weight:bold;
+  color:var(--sub-color);text-decoration:underline;padding:6px 2px;min-height:28px;
+  -webkit-tap-highlight-color:transparent;}
+#pinClear.ask{color:#B42828;text-decoration:none;}
+#pinClear[hidden]{display:none;}
+#pinList{display:flex;flex-wrap:wrap;gap:6px;}
+/* チップは「台番(押すと飛ぶ)」と「✕(外す)」の2つのボタンを1つの枠に収める。 */
+#pinList .pinchip{display:inline-flex;align-items:stretch;overflow:hidden;
+  border:1.5px solid #1F3864;border-radius:16px;background:var(--card-bg);}
+#pinList .pinchip button{border:none;background:none;color:var(--text);font-family:inherit;
+  -webkit-tap-highlight-color:transparent;}
+#pinList .pinchip .go{min-height:32px;padding:5px 5px 5px 11px;font-size:12.5px;font-weight:bold;}
+#pinList .pinchip .rm{min-width:32px;padding:0 9px 0 4px;font-size:13px;color:var(--sub-color);}
+#pinList .none{font-size:12px;color:var(--cap-color);padding:2px 0;}
+/* ライト/ダーク切替ボタン(2026-07-30夜新設・同夜に配置方式を変更)。
+   当初はposition:fixedで右上固定にしていたが、台番セルの上にピンチズームで拡大された
+   ボタンが重なりタップできなくなる不具合が実機で発生(谷川氏スクショIMG_1434)。
+   対策: 固定位置をやめ、#board内の絶対座標(島図上で機種が存在しない「パチンコ」の
+   空きスペース)に実際のセルと同じ仕組みで配置する。#boardごとtransform:scaleされるため、
+   ボタンも他の台番セルと全く同じ比率でズーム/パンに追従し、常に空きスペースに留まる
+   (逆に、そのスペースが画面外までスクロール/ズームされている間は非表示になるが、
+   数回に1度程度しか使わない切替ボタンなので許容する判断・2026-07-30)。 */
+/* 下部固定ツールバー(2026-07-31・第1段階)。島図内に置いていた操作(配色/更新/絞り込み/期間切替)を
+   画面下端の固定バーへ移した。ズーム・パンしても常に手元にあり、押す場所を探さなくてよい。
+   高さの基準: Appleのヒットターゲット44pt / WCAG 2.5.5(AAA)の44x44px。どちらも満たす。
+   ホームバー(iPhone)ぶんは env(safe-area-inset-bottom) を足して重ならないようにする。 */
+/* 2026-07-31: 指のピンチで拡大すると position:fixed のままでは画面外へ出るため、
+   JS(fitTabbar)が可視領域の下端へ貼り付ける。transform-originを下端左にして、
+   見かけの大きさを一定に保つ scale(1/vv.scale) を掛けても位置が動かないようにする
+   (台番カードのシートと同じ手法)。transitionはデバウンス後の1回の補正を滑らかに見せる。 */
+#tabbar{position:fixed;left:0;right:0;bottom:0;z-index:60;
+  background:var(--card-bg);border-top:1px solid var(--wk-border);
+  box-shadow:0 -6px 20px rgba(0,0,0,.10);
+  padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;gap:6px;
+  /* JSが幅を数値で入れるので、左右paddingが外側に足されないようborder-boxにする
+     (content-boxのままだと padding 8px×2 ぶん右へ16pxはみ出す。実測で判明)。 */
+  box-sizing:border-box;
+  transform-origin:bottom left;
+  transition:left .15s ease,bottom .15s ease,transform .15s ease;}
+/* バーの開閉(2026-08-03・谷川氏要望「開閉ボタンを作って押したら下へ隠されて固定される」)。
+   隠し方は **中身(.tbbody)の高さを畳む** 方式にする。#tabbar自身に transform を掛けて
+   下へ滑らせる手も考えたが、`fitTabbar()` がピンチ追従で `tb.style.transform` を直接
+   書き換えるので取り合いになる(scale と translateY のどちらかが必ず消える)。
+   高さを畳めば `fitBar()` の offsetHeight 実測がそのまま効き、--tbh も自動で縮む
+   =島図の下余白・「全体に戻す」・凡例の位置も何もしなくても追従する。
+   **高さ(max-height)は遷移させない**。遷移させると、告知が出てバーが高くなる場面で
+   `fitBar()`が遷移の途中の高さを測ってしまい、--tbh が実際のバーより低いまま残る
+   (2026-08-03に実際に出た。--tbh=183pxに対し実バー219px=島図の下端が隠れる)。
+   高さは即座に確定させ、動きは中身のフェードとつまみの矢印の回転で見せる。 */
+.tbbody{display:flex;flex-direction:column;gap:6px;
+  overflow:hidden;transition:opacity .18s ease;}
+#tabbar.is-min .tbbody{max-height:0;opacity:0;}
+/* つまみ。閉じてもこれだけは残す(残さないと戻す手段が画面から消える)。
+   **できる限り薄くする**(2026-08-03谷川氏指示「操作を隠すのバーが高さ大きすぎる」)。
+   当初はAppleの44ptに合わせて44pxにしていたが、畳んだときの高さがそのまま
+   つまみの高さになるので、ここが厚いと「畳んだのに場所を取る」ことになる。
+   **幅が画面いっぱい(374px)あるので狙う必要がなく、薄くても押し外さない**。
+   高さ24pxはWCAG 2.5.8(AA)の24×24pxを満たす下限で、そこに合わせてある
+   (2.5.5の44×44はAAAの水準。ここは面積より島図の広さを優先する判断)。
+   閉じているときは矢印が上向きになる。 */
+.tbgrip{display:flex;align-items:center;justify-content:center;gap:5px;
+  width:100%;min-height:24px;padding:0;border:0;border-radius:8px;
+  background:transparent;color:var(--sub-color);font:600 11px/1 inherit;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.tbgrip svg{width:14px;height:14px;transition:transform .22s ease;}
+/* 畳んでいるときはバーの上下余白も詰める(つまみを薄くしても、余白が残ると
+   その分だけ島図が狭いままになる)。 */
+#tabbar.is-min{padding-top:2px;padding-bottom:calc(2px + env(safe-area-inset-bottom));}
+#tabbar.is-min .tbgrip svg{transform:rotate(180deg);}
+.tbgrip:active{background:var(--sub7-bg);}
+@media (prefers-reduced-motion:reduce){
+  .tbbody,.tbgrip svg{transition:none;}
+}
+.tbrow{display:flex;gap:6px;}
+/* データの鮮度行(2026-08-01新設)。高さを取りすぎるとグラフや島図に回せる縦が減るので
+   10px・1行に抑える。押せる物なので最低限の当たり判定(高さ16px)は確保する。
+   新版が用意できたときだけ色を付けて押せることを伝える(is-new)。 */
+.tbstat{display:block;width:100%;min-height:16px;border:none;background:none;
+  color:var(--sub-color);font-size:10px;line-height:1.6;padding:0 2px;
+  text-align:center;font-family:inherit;-webkit-tap-highlight-color:transparent;}
+.tbstat.is-new{color:#fff;background:var(--accent,#1F3864);border-radius:8px;
+  font-weight:bold;min-height:26px;line-height:26px;}
+/* 新台入替の告知(2026-08-02新設)。鮮度行のすぐ上に1行。**当日と前日だけ色を強くする**
+   (毎日目立つと見慣れて読まなくなるため)。押すと機種と台数の内訳を出す。 */
+.tbnotice{display:block;width:100%;min-height:26px;border:none;border-radius:8px;
+  font-family:inherit;font-size:11px;font-weight:bold;line-height:1.5;padding:4px 8px;
+  margin-bottom:4px;text-align:center;background:rgba(31,56,100,.10);color:var(--text);
+  -webkit-tap-highlight-color:transparent;box-sizing:border-box;}
+/* display:block は hidden属性(ブラウザ既定のdisplay:none)より強いので、告知が無い日に
+   空の帯が残ってしまう。明示的に消す(2026-08-02・実機相当の画像で気づいた)。 */
+.tbnotice[hidden]{display:none;}
+.tbnotice.is-soon{background:#c62828;color:#fff;}
+:root[data-theme="dark"] .tbnotice{background:rgba(138,180,248,.16);color:#cfe0ff;}
+:root[data-theme="dark"] .tbnotice.is-soon{background:#e35d5d;color:#160c0c;}
+#noticeModal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:95;}
+#noticeCard{position:absolute;left:50%;transform:translateX(-50%);width:min(94vw,430px);
+  background:var(--card-bg);color:var(--text);border-radius:14px;padding:12px 14px;
+  max-height:80vh;overflow:auto;box-shadow:0 12px 34px rgba(0,0,0,.45);}
+#noticeCard h3{margin:0 0 6px;font-size:15px;}
+#noticeCard .nsum{font-size:12px;color:var(--sub-color);margin-bottom:8px;}
+#noticeCard .nsec{font-size:12px;font-weight:bold;margin:8px 0 3px;}
+#noticeCard ul{margin:0;padding-left:16px;font-size:12px;line-height:1.7;}
+/* 右上の閉じる(2026-08-04・谷川氏指示「閉じるボタンを右上にも作る」)。
+   内訳は縦に長いので下まで送らないと閉じられないのは手間。台番カードの「✕ 閉じる」と
+   同じ見た目にそろえ、中身に重ならないよう見出しの右へ浮かせる。 */
+#noticeCard .nclose.ntop{position:sticky;top:0;float:right;width:auto;margin:0 0 2px 8px;
+  padding:3px 12px;min-height:32px;background:var(--closex-bg);color:var(--closex-color);
+  border:none;z-index:2;}
+#noticeCard .nclose{margin-top:10px;width:100%;min-height:34px;border-radius:9px;
+  border:1.5px solid var(--wk-border);background:var(--card-bg);color:var(--text);
+  font-family:inherit;font-size:13px;font-weight:bold;}
+/* 期間チップの高さは半分(2026-08-04・谷川氏指示「単日水曜のみとかのボタンの高さを
+   半分くらいにしてレイアウトが大きく変わらないよう調整」)。台入替とオプチャ情報の行を
+   足すぶん、ここを 44px→26px に詰めて、バー全体の高さがほとんど変わらないようにする。
+   横幅は画面いっぱいの1/4(約90px)あるので、低くしても押し外さない。 */
+/* 2026-08-06(谷川氏指示「ここにも3週間ボタン追加、一行で、収まるよう調整」):
+   チップが4つ→5つになったので、狭い端末でも1行に収まるよう文字を画面幅に追従させる。
+   1つぶんの幅は (画面幅-左右余白16-隙間6x4)/5。文字に使えるのは枠と余白を引いた残り。
+   幅320pxの端末なら約49pxで、いちばん長い「水曜のみ」(全角4文字)には12.2pxが上限。
+   3.35vwは320pxで10.7px・390pxで13pxになるので、上限13pxのまま両端に収まる。
+   **折り返しは禁止**(折り返すと26pxの高さを突き破ってバー全体が伸びる)。 */
+/* 2026-08-11(谷川氏指示「今日の午前中 単日 水曜のみ／直近7日 3週間 全期間 という
+   ボタン並びにする」): この段に「今日の午前中」を足して6つにし、3つずつ2段で折り返す。
+   1つぶんの幅を (100%% - 隙間6px×2)/3 に固定するので、3つ入った時点で必ず改行される
+   (flex:1 のままだと6つが1行に潰れる)。段の間も 6px 空ける。
+   いちばん長い「今日の午前中 ✕」で決まる: 幅320pxなら1つ97px・文字10.7pxで約79px。 */
+.tbper{flex-wrap:wrap;row-gap:6px;}
+.tbper .pchip,.tbper .tbsbtn{flex:0 0 calc((100% - 12px) / 3);
+  min-height:26px;border-radius:9px;border:1.5px solid var(--wk-border);
+  background:var(--card-bg);color:var(--text);font-family:inherit;
+  font-size:clamp(10px,3.35vw,13px);font-weight:bold;white-space:nowrap;
+  display:flex;align-items:center;justify-content:center;padding:0 1px;
+  -webkit-tap-highlight-color:transparent;box-sizing:border-box;}
+/* 台入替 / オプチャ情報(2026-08-04新設)。期間チップと同じ見た目にそろえ、
+   左端が「単日」の真下に来るよう2等分にする。 */
+.tbsub .tbsbtn{flex:1;min-height:30px;border-radius:9px;border:1.5px solid var(--wk-border);
+  background:var(--card-bg);color:var(--text);font-family:inherit;font-size:12px;
+  font-weight:bold;display:flex;align-items:center;justify-content:center;padding:0 4px;
+  -webkit-tap-highlight-color:transparent;box-sizing:border-box;}
+/* 状態の見た目は段に依らせない(2026-08-11)。「今日の午前中」が .tbsub から .tbper へ
+   移ったので、`.tbsub .tbsbtn.is-on` のように段で縛ると点灯しなくなる。 */
+.tbsbtn:active{background:var(--sub7-bg);}
+/* 入替の内訳が無い日(告知も履歴も取れないとき)は押しても何も出ないので、薄くして
+   押せないことを見た目で伝える。 */
+.tbsbtn[disabled]{opacity:.4;}
+/* 「今日の午前中」を出している間の印(2026-08-10)。期間チップの is-on と同じ見せ方に
+   そろえる=いま盤面が普段の色ではない、と一目で分かるようにするため。 */
+.tbsbtn.is-on{background:#1F3864;border-color:#1F3864;color:#fff;}
+:root[data-theme="dark"] .tbsbtn.is-on{background:#8ab4f8;border-color:#8ab4f8;color:#10161f;}
+.tbsbtn.loading{opacity:.55;animation:chipwait 1s ease-in-out infinite;}
+.tbper .pchip.is-on{background:#1F3864;border-color:#1F3864;color:#fff;}
+/* 期間データを取りに行っている間の表示(2026-08-01・分割ロード)。押しても何も起きない
+   ように見えないよう、押したチップだけを薄くして点滅させる。ふつうは裏で先読み済み
+   なので出ない=出たときだけ「待っている」と分かればよい。 */
+.tbper .pchip.loading{opacity:.55;animation:chipwait 1s ease-in-out infinite;}
+@keyframes chipwait{50%{opacity:.28;}}
+:root[data-theme="dark"] .tbper .pchip.is-on{background:#8ab4f8;border-color:#8ab4f8;color:#10161f;}
+.tbtn{flex:1;min-height:48px;border:none;background:transparent;color:var(--text);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  font-size:11px;font-weight:bold;border-radius:10px;
+  -webkit-tap-highlight-color:transparent;}
+.tbtn svg{width:22px;height:22px;color:var(--btn-accent);}
+.tbtn:active{background:var(--sub7-bg);}
+/* 読み上げ用の非表示テキスト(配色ボタンの「次にどうなるか」を保持する) */
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+/* ツールバーぶんの余白。島図の最下部がバーに隠れないよう #wrap の下に確保する。
+   バーの実高さはJSが測って --tbh に入れる(行数や端末のセーフエリアで変わるため)。 */
+#wrap{padding-bottom:var(--tbh,104px);}
+/* 島図ビュー/資料ビューの切替(2026-07-31・第2段階)。従来は島図の下に凡例・説明書・機能・
+   機種別出率の表が連なった1枚の長い盤面で、幅に合わせると島図が極端に小さくなり、画面の
+   下半分が余白になっていた。島図だけを表示して画面の高さいっぱいまで使えるようにし、
+   資料は下部バーの「資料」から切り替えて見る形にする。 */
+#board.v-island .tc{display:none;}
+#board.v-docs .cell:not(.tc){display:none;}
+#tabbar .tbtn.is-on{background:var(--sub7-bg);}
+/* 更新ボタンの手応え(2026-07-31谷川氏指示「押した時にクルクル回って、終わったら更新が
+   終わったと分かるように」)。押した瞬間からアイコンを回し、再読込後にトーストで完了を伝える。
+   更新は実際にはページの再読込なので、完了の合図は「読み込み直した後」に出す必要がある
+   →直前にsessionStorageへ印を置き、次の表示でそれを見てトーストを出して印を消す。 */
+@keyframes spin{to{transform:rotate(360deg);}}
+.tbtn.busy svg{animation:spin .8s linear infinite;transform-origin:50% 50%;}
+.tbtn.busy{opacity:.75;}
+#toast{position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(var(--tbh,104px) + 14px);z-index:80;
+  background:rgba(31,56,100,.94);color:#fff;font-size:13.5px;font-weight:bold;
+  padding:11px 18px;border-radius:22px;box-shadow:0 6px 20px rgba(0,0,0,.3);
+  opacity:0;pointer-events:none;transition:opacity .22s ease;max-width:92vw;text-align:center;
+  white-space:nowrap;}
+#toast.show{opacity:1;}
+:root[data-theme="dark"] #toast{background:rgba(138,180,248,.96);color:#10161f;}
+/* 絞り込みパネル(2026-07-31新設、同日中に台番タップの#cardと同じズーム追従(fitFilterModal)を
+   追加)。台番タップの#modalと同じ「fixed全面オーバーレイ+中央カード」構造を流用し、
+   位置/サイズはpositionOverlayCard()で#cardと共通ロジック化(島をピンチズームしていても
+   適切な実寸で開く。谷川氏指示「台番タップした時と同じように」)。JS側がleft/top/transform/
+   width/max-heightを都度書き換えるため、CSSの初期値はJS実行前のフォールバックとしてのみ使う。 */
+/* 検索パネル(2026-08-01新設)も同じ構造・同じ見た目にそろえる(#searchModal/#searchCard)。
+   位置とサイズはpositionOverlayCard()を共用する。 */
+#filterModal,#searchModal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:90;}
+#filterCard,#searchCard{background:var(--card-bg);color:var(--text);border-radius:14px;width:340px;max-width:90vw;
+  max-height:85vh;overflow:auto;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  box-shadow:0 8px 30px rgba(0,0,0,.4);padding:2px 4px 14px;
+  transition:left .15s ease,top .15s ease,transform .15s ease;}
+#filterCard h2,#searchCard h2{font-size:15px;margin:0;padding:8px 12px 4px;}
+/* 絞り込みパネルの閉じるボタンも44px以上にする(2026-07-31・第1段階)。台番カードの
+   #closexと同じ見た目にそろえる。 */
+#filterClose,#searchClose{float:right;border:none;background:var(--closex-bg);color:var(--closex-color);
+  font-size:14px;font-weight:bold;border-radius:8px;padding:1px 12px;margin-left:8px;
+  min-height:44px;min-width:88px;}
+/* 検索結果の一覧(2026-08-01)。1行=1台で「台番 機種名」。指で押す前提なので1行44px以上。
+   件数が多い機種(ハナハナ136台等)でもパネルが伸びきらないよう、一覧だけを内側で
+   スクロールさせる(パネル全体のスクロールと二重にならないよう高さを固定する)。 */
+#sres{max-height:34vh;overflow:auto;margin:2px 8px 0;-webkit-overflow-scrolling:touch;}
+.sitem{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;box-sizing:border-box;
+  padding:6px 8px;border:none;border-bottom:1px solid var(--wk-border);background:transparent;
+  color:var(--text);font-size:13.5px;text-align:left;-webkit-tap-highlight-color:transparent;}
+.sitem:active{background:var(--sub7-bg);}
+.sitem b{font-size:15px;font-variant-numeric:tabular-nums;min-width:3.6em;}
+.sitem span{color:var(--sub-color);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#sCount{padding:6px 12px 0;font-size:12.5px;color:var(--sub-color);}
+.frow{padding:6px 12px;font-size:13px;}
+/* 2026-07-31谷川氏指示「絞り込みパネルの項目ごとに、どの機能のことなのか視覚的に
+   分かるよう項目名のセル内にデザインを表示して」。項目名の左に意味を表す小アイコン
+   (棒グラフ=直近7日の日毎差枚 / 折れ線=累計の推移 / 円と対角線=割合)を置き、
+   項目名の下に一行の言い換えを添える。アイコンは色付きの角丸チップに載せて、
+   3項目が一目で区別できるようにする(色は島図の意味色と衝突しない中間色)。 */
+.frow label{display:flex;align-items:flex-start;gap:8px;color:var(--sub-color);
+  font-size:11.5px;margin-bottom:4px;}
+.fico{flex:0 0 auto;width:26px;height:26px;border-radius:7px;display:flex;
+  align-items:center;justify-content:center;}
+.fico svg{width:17px;height:17px;display:block;fill:currentColor;}
+.fico-7{background:rgba(31,95,180,.14);color:#1F5FB4;}
+.fico-t{background:rgba(31,56,100,.14);color:#1F3864;}
+.fico-r{background:rgba(180,90,20,.14);color:#a25c14;}
+:root[data-theme="dark"] .fico-7{background:rgba(138,180,248,.16);color:#8ab4f8;}
+:root[data-theme="dark"] .fico-t{background:rgba(138,180,248,.10);color:#9db3d6;}
+:root[data-theme="dark"] .fico-r{background:rgba(255,183,77,.16);color:#ffb74d;}
+/* 稼働まわりの4条件と「選んだ日」のアイコン(2026-08-12)。日数=カレンダー系は
+   fico-d と同じ色、G数は緑寄り、プラス率は上向きの矢印なので青寄りにする
+   (fico-d はそれまで色の指定が無く、1つだけ地の色が付いていなかった)。 */
+.fico-d,.fico-n{background:rgba(31,56,100,.12);color:#1F3864;}
+.fico-g{background:rgba(30,120,90,.14);color:#1e785a;}
+.fico-p{background:rgba(31,95,180,.14);color:#1F5FB4;}
+:root[data-theme="dark"] .fico-d,:root[data-theme="dark"] .fico-n{
+  background:rgba(138,180,248,.12);color:#9db3d6;}
+:root[data-theme="dark"] .fico-g{background:rgba(129,199,132,.16);color:#81c784;}
+:root[data-theme="dark"] .fico-p{background:rgba(138,180,248,.16);color:#8ab4f8;}
+/* 設定の推定まわり(2026-08-13)。RBはボーナスの赤、ブドウは紫にして
+   上の稼働まわり(青・緑)と見分けが付くようにする。 */
+.fico-rb{background:rgba(190,60,60,.14);color:#b03a3a;}
+.fico-ko{background:rgba(120,70,170,.14);color:#7a46aa;}
+:root[data-theme="dark"] .fico-rb{background:rgba(239,131,131,.16);color:#ef8383;}
+:root[data-theme="dark"] .fico-ko{background:rgba(179,157,219,.16);color:#b39ddb;}
+.ftx{display:block;color:var(--text);font-size:12.5px;font-weight:bold;line-height:1.3;}
+.ftx em{display:block;font-style:normal;font-weight:normal;font-size:11px;
+  color:var(--sub-color);margin-top:1px;}
+.frow input[type=text]{width:100%;box-sizing:border-box;padding:6px 8px;font-size:14px;
+  border:1px solid var(--wk-border);border-radius:6px;background:var(--card-bg);color:var(--text);}
+.frow input[type=number]{width:6em;padding:6px 6px;font-size:16px;min-height:44px;
+  border:1px solid var(--wk-border);box-sizing:border-box;
+  border-radius:6px;background:var(--card-bg);color:var(--text);}
+.fbtns{padding:10px 12px 2px;display:flex;gap:8px;}
+.fbtns button{flex:1;min-height:48px;padding:9px 0;font-size:15px;font-weight:bold;
+  border:none;border-radius:10px;}
+#fApply{background:#1F3864;color:#fff;}
+#fClear{background:var(--total-bg);color:var(--text);}
+#fCount{padding:6px 12px 0;font-size:12.5px;color:var(--sub-color);}
+/* 絞り込み台一覧(2026-08-12・谷川氏指示「絞り込んだ台の絞り込み台一覧ボタン追加。
+   機種ごとに表にして視覚的に見やすいように」)。島図の光だけでは、どの機種に何台
+   当たったかを数えるのに島全体を目で追う必要があった。
+   幅は絞り込みパネルの中なので **横スクロールを作らない**(資料と同じ約束)。 */
+#fList{background:var(--total-bg);color:var(--text);}
+#fList:disabled{opacity:.4;}
+#fListBox{padding:8px 12px 4px;}
+#fListBox .fl-h{font-size:12px;font-weight:bold;color:var(--sub-color);margin:2px 0 8px;
+  display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+/* どの期間で見た一覧なのかを頭に1回だけ出す(2026-08-12・期間がパネル全体で1つになった) */
+#fListBox .fl-hp{font-weight:normal;white-space:nowrap;}
+#fListBox .fl-none{font-size:12.5px;color:var(--sub-color);padding:6px 0;}
+#fListBox .fl-g{margin:0 0 12px;}
+#fListBox .fl-gn{font-size:13px;font-weight:bold;padding:5px 7px;border-radius:7px;
+  background:rgba(31,56,100,.10);display:flex;justify-content:space-between;align-items:baseline;}
+#fListBox .fl-gn span{font-size:11.5px;font-weight:normal;color:var(--sub-color);}
+#fListBox .fl-t{width:100%;table-layout:fixed;border-collapse:collapse;
+  font-size:12.5px;margin-top:3px;}
+/* 7列(チェック/台番/位置/差枚/出率/平均G/プラス率)。均等割りだと位置区分(中央外1など)が
+   切れるので、幅を配り直す(2026-08-12)。**横スクロールは作らない**約束は守る。 */
+/* 差枚は5桁(+51,591)になるので、隣の出率とくっつかない幅を先に確保する
+   (2026-08-12・実機のスクショで「+51,591106.2%」と読めてしまっていた)。 */
+#fListBox .fl-t th:nth-child(1),#fListBox .fl-t td:nth-child(1){width:8%;}
+#fListBox .fl-t th:nth-child(2),#fListBox .fl-t td:nth-child(2){width:13%;}
+#fListBox .fl-t th:nth-child(3),#fListBox .fl-t td:nth-child(3){width:15%;}
+#fListBox .fl-t th:nth-child(4),#fListBox .fl-t td:nth-child(4){width:19%;}
+#fListBox .fl-t th:nth-child(5),#fListBox .fl-t td:nth-child(5){width:15%;}
+#fListBox .fl-t th:nth-child(6),#fListBox .fl-t td:nth-child(6){width:16%;}
+#fListBox .fl-t th:nth-child(7),#fListBox .fl-t td:nth-child(7){width:14%;}
+/* チェックした台の表は3列目が機種名。名前は長いので少しだけ広く取る */
+#fListBox .fl-tc th:nth-child(3),#fListBox .fl-tc td:nth-child(3){width:20%;}
+#fListBox .fl-tc th:nth-child(4),#fListBox .fl-tc td:nth-child(4){width:19%;}
+#fListBox .fl-tc th:nth-child(7),#fListBox .fl-tc td:nth-child(7){width:13%;}
+#fListBox .fl-a,#fListBox .fl-pl{color:var(--sub-color);font-size:11.5px;}
+/* 台番の左のチェック(2026-08-12・谷川氏指示)。印そのものは小さいが、
+   **枠(td)のどこを押しても効く**ようにしてあるので指で押しやすい。 */
+#fListBox .fl-ck{text-align:center;padding:2px 0;-webkit-tap-highlight-color:transparent;}
+#fListBox .fl-cb{width:17px;height:17px;margin:0;accent-color:#1F3864;vertical-align:middle;}
+#fListBox .fl-n{text-align:left;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;font-size:11.5px;}
+/* チェックした台のまとめ。一覧のいちばん上に出て、機種をまたいで見比べられる */
+#fListBox .fl-ckh{display:flex;flex-wrap:nowrap;justify-content:space-between;
+  align-items:center;gap:8px;
+  font-size:12.5px;font-weight:bold;padding:5px 7px;border-radius:7px;
+  background:rgba(255,202,40,.22);margin:2px 0 4px;}
+/* 見出しは1行に収める(差枚が5桁でも折り返さない)。入り切らないときは字を詰める */
+#fListBox .fl-ckt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+:root[data-theme="dark"] #fListBox .fl-ckh{background:rgba(255,202,40,.16);}
+#fListBox .fl-ckh button{min-height:30px;padding:3px 10px;font-size:11.5px;
+  border:1px solid var(--wk-border);border-radius:15px;background:var(--card-bg);
+  color:var(--text);font-family:inherit;white-space:nowrap;}
+#fListBox .fl-t th{font-size:10.5px;font-weight:normal;color:var(--sub-color);
+  padding:3px 2px;text-align:right;border-bottom:1px solid var(--line,#ddd);}
+#fListBox .fl-t th:first-child,#fListBox .fl-t th:nth-child(2){text-align:left;}
+#fListBox .fl-t td{padding:4px 3px;border-bottom:1px solid var(--line,#eee);
+  text-align:right;white-space:nowrap;}
+#fListBox .fl-d{text-align:left;font-weight:bold;padding:0;}
+/* 台番は押せるボタン(2026-08-12・谷川氏指示)。押すと、いま絞り込んでいる期間の
+   ままその台のグラフが開く。押せると分かるよう下線と色を付け、
+   指で押しやすいよう高さを持たせる(セルいっぱいに広げる)。 */
+#fListBox .fl-go{display:block;width:100%;min-height:30px;padding:4px 2px;
+  border:none;background:none;font:inherit;font-weight:bold;text-align:left;
+  color:#1F5FB4;text-decoration:underline;text-underline-offset:2px;
+  font-family:inherit;-webkit-tap-highlight-color:transparent;}
+#fListBox .fl-go:active{opacity:.6;}
+:root[data-theme="dark"] #fListBox .fl-go{color:#8ab4f8;}
+#fListBox .fl-q{text-align:left;color:var(--sub-color);font-size:11.5px;
+  overflow:hidden;text-overflow:ellipsis;}
+#fListBox .fl-p{color:#1F5FB4;}
+#fListBox .fl-m{color:#C0202A;}
+:root[data-theme="dark"] #fListBox .fl-gn{background:rgba(138,180,248,.14);}
+:root[data-theme="dark"] #fListBox .fl-p{color:#8ab4f8;}
+:root[data-theme="dark"] #fListBox .fl-m{color:#ff8a80;}
+/* 絞り込みパネルの使い方説明(2026-07-31谷川氏指示「機種名入力欄を削除し、タップして開いた
+   ところに説明文を入れる」)。入力欄より前に置き、読み飛ばしても邪魔にならない濃さにする。 */
+.fnote{padding:8px 12px 2px;font-size:12.5px;line-height:1.55;color:var(--cap-color);}
+/* よく使う条件のボタン(2026-08-01新設)。押すだけで下の欄に値が入り、そのまま絞り込む。
+   当たり判定はWCAG 2.5.8(AA)の24×24pxを満たす高さ32pxにしてある(パネル内は指を
+   大きく動かさずに押せる位置なので、面積より一覧性を優先)。 */
+.fpre{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 2px;}
+.fpre .pre{min-height:32px;padding:5px 10px;font-size:12.5px;font-weight:bold;
+  border:1px solid var(--wk-border);border-radius:16px;background:var(--card-bg);
+  color:var(--text);font-family:inherit;-webkit-tap-highlight-color:transparent;}
+.fpre .pre:active{background:var(--total-bg);}
+/* 台番タップ時のグラフ期間切替(2026-07-31谷川氏指示「タップした時の画面内にグラフ期間切替
+   ボタン設置」)。見出しのすぐ下に置き、押した窓でグラフ・表・集計行をまとめて描き直す。 */
+/* 2026-08-06(谷川氏指示「カード内にも水曜のみボタン追加。一行で入るように小さく調整」):
+   ボタンが1つ増えて最大5つ(単日/水曜のみ/直近7日/3週間/全期間)になったので、
+   字と隙間を詰めて折り返さないようにする。min-width:0 が無いと flex の既定
+   (min-width:auto=中身の幅より縮まない)で押し出され、2行に落ちる。 */
+/* 2026-08-11・谷川氏指示「グラフ期間のボタンを3つずつ並べて二列にする」。
+   下部バーの .tbper と同じ考え方で、**1つぶんの幅を1/3に固定して折り返させる**
+   (flex:1 のままだと6つが1行に潰れる)。見出しの「グラフ期間」は自分の行に置く。 */
+.mper{display:flex;flex-wrap:wrap;align-items:center;gap:3px;padding:1px 8px 2px;
+  font-size:9.5px;color:var(--cap-color);white-space:nowrap;}
+.mper>span:first-child{flex:0 0 100%;}
+.mper .mchip{flex:0 0 calc((100% - 6px)/3);}
+.mchip{flex:1;min-width:0;min-height:26px;padding:2px 1px;font-size:10px;font-weight:bold;
+  border-radius:8px;white-space:nowrap;
+  border:1.5px solid var(--wk-border);background:var(--card-bg);color:var(--text);
+  box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+.mchip.is-on{background:#1F3864;border-color:#1F3864;color:#fff;}
+:root[data-theme="dark"] .mchip.is-on{background:#8ab4f8;border-color:#8ab4f8;color:#10161f;}
+/* 午前中のデータが無い台では、カードの「◯/◯(曜)午前中」を暗くして押せなくする
+   (2026-08-11・谷川氏指示)。昼スナップはノーマル機だけを回っているので、
+   AT機など対象外の台では押しても出るものが無い。押せる顔のままだと
+   「押したのに何も出ない」に見える。 */
+.mchip:disabled{opacity:.35;cursor:default;}
+/* 絞り込み該当/非該当の見た目(2026-07-31新設)。台番セルの塗り色(差枚ヒートの意味を持つ色)は
+   変更せず、非該当は薄く・該当は黄色の縁取りで強調する(色そのものを変えない=既存の
+   ライト/ダーク配色方針<島図の意味を持つ色には触れない>を踏襲)。 */
+/* 午前中を出している間だけ、台番の上の推定設定(対象期間の合算で出した丸数字)を
+   今日の午前中の期待設定に差し替える(2026-08-11・谷川氏指示)。
+   **見た目は元の丸数字のまま**(同日の指示「①〜⑥でよい。表記が崩れるため」)なので、
+   大きさも位置も元の文字と同じにする=差し替えても行の見え方が変わらない。 */
+.cell .ktn{font-size:inherit;}
+/* 差し替えた中身を包む1枚(2026-08-12・谷川氏の実機写真で判明した不具合の対策)。
+   .cell は display:flex なので、中に要素を「直接」置くとそこが独立したフレックス項目に
+   なり、テキスト・その要素・br・テキストが**横一列**に並ぶ。結果、
+   「位置区分＋推定設定」と「台番」が改行されず、狭いセルの中でそれぞれが折り返して
+   中内/1 と ④260/6 のように2列へ割れていた。包みを1枚かませば中身は普通の行として
+   流れ、br が効いて元どおり「位置区分＋推定設定」→改行→「台番」の2行になる。 */
+.cell .kwrap{display:block;text-align:center;line-height:inherit;}
+.tap.filt-dim{opacity:.16;}
+/* 該当した台は**台番の文字も白**にする(2026-08-12・谷川氏指示)。地色は差枚ヒートの色
+   （薄い色から濃い色まである）なので、白のままだと薄い地色で読めなくなる。
+   細い黒の影を敷いて、どの地色の上でも白い字が浮くようにしてある。
+   セルの文字色は xlsx 由来の inline style で入っているので !important が要る。 */
+.tap.filt-hit{outline:2.5px solid #ffca28;outline-offset:-2.5px;z-index:6;
+  color:#ffffff !important;
+  text-shadow:0 0 2px rgba(0,0,0,.9),0 1px 2px rgba(0,0,0,.6);}
+/* 機種名ラベルのハイライト(2026-07-31谷川氏指示「絞り込みでハイライトされた台番の機種名も
+   ハイライトにする」)。台番と同じ黄色の縁取り＋薄い黄色の地色＋太字にする。文字色は
+   変えない(ライトは黒地に黄文字が読めない・ダークは白文字のままが最も読める)。
+   ラベル側は薄く(dim)しない=島の並び自体は読めるまま残す。 */
+/* 地色はセルのinline style(xlsx由来の塗り)より強く効かせる必要があるため!important。 */
+.cell.lbl-hit{outline:2.5px solid #ffca28;outline-offset:-2.5px;background:rgba(255,202,40,.30) !important;font-weight:bold;z-index:6;}
+/* 2026-07-31谷川氏指示「絞り込みした時に台番と同じく該当しない機種は暗くなるように」。
+   該当しなかった機種名ラベルも台番セルと同じ薄さまで落とし、残った機種だけが浮かび上がる
+   ようにする(当初はラベルを薄くしない設計だったが、台番だけ薄いと視線が散るため変更)。 */
+.cell.lbl-dim{opacity:.16;}
+/* 端末側で「視差効果を減らす/アニメーションを減らす」を有効にしている人には、
+   飾りの動きを止める(2026-08-01新設)。iOS/Androidとも設定にあり、酔いや疲れの理由で
+   使われている。**情報は動きに依存させていない**(点滅は目印であって意味ではない)ので、
+   止めても読み方は変わらない。更新ボタンの回転だけは「処理中」を伝える役割があるため残す。
+   **必ずスタイルの最後に置く**(同じ強さの指定は後に書いたほうが勝つので、
+   前半に置くと元のanimation指定に上書きされて効かない=実際に一度そうなった)。 */
+@media (prefers-reduced-motion: reduce){
+  #card.sheet-in{animation:none;}
+  #chart #selHalo{animation:none;opacity:.9;}
+  .tap.hitfocus{animation:none;}
+  .pchip.loading{animation:none;}
+  #card{transition:none;}
+  .tbtn.busy svg{animation:none;}
+}
+/* 台番カードの中の小さな島図(2026-08-04・谷川氏指示「カードの中にも小さく台の画像を」)。
+   画像ファイルではなく盤面のセルを縮小して写したもの。**カードの高さを増やさない**ため
+   機種名の行へ絶対配置で重ねる(高さはfitCardの余裕1.8pxしか無く、増やすとグラフが1段落ちる)。
+   つまみの受け口を兼ねる行なので pointer-events は殺してドラッグを素通りさせる。 */
+/* 2026-08-04(4回目・谷川氏報告「見出しの日付が…で切れる」): インラインで置くと、
+   見出しのボタン(float)の帯がこの行まで伸びているせいで写真が右上へ押し出され、
+   見出しと横幅を取り合って日付が省略された(本番でだけ再現。ローカル検証には
+   kishu.jsonが無く写真が出ないため素通りしていた)。
+   機種名の行(#msub)へ逃がすのも駄目で、padding でも text-indent でも
+   長い機種名(「Lスマスロバジリスク甲賀忍法帖絆2 天膳BLACK EDITION」)が2行に割れた。
+   **見出し行(h2)の左上**が正解(谷川氏指示「カードの右上にある筐体画像は左上に移動」とも一致)。
+   h2 の padding-left を写真ぶん広げると、BFCである #mtitle の clientWidth がそのぶん
+   自動で減り、fitTitle が文字を詰めて1行に収める=写真の幅が見出しの計算に織り込まれる。
+   広げられる幅には限りがある。いちばん長い見出し(台3677の「7/14(火)〜8/3(月) 21日」)は
+   元の余白でも余裕が3.5pxしかなく、いきなり30pxまで広げたら文字を下限の8pxまで詰めても
+   0.9pxはみ出して検証が配信を止めた。
+   2026-08-04(2回目・谷川氏指示「小さすぎるので他の文字やボタンを小さく調整して」):
+   写真を**見出しと機種名の2行ぶん**の高さ(30px)にし、その幅(≒18px)を
+   見出しの文字・ボタン・機種名を少しずつ詰めて捻出した(下の #closex/#shareBtn/.sub)。
+   写真は絶対配置なので行の高さには関与しない=カードは高くならない。 */
+#card h2{padding-left:24px;}
+#card #msub{padding-left:24px;}
+/* 押すと要点スペックが出る(2026-08-04)。押せることが分かるよう薄い枠を付ける。
+   つまみの受け口を兼ねる行なので、当たり判定は写真の内側だけに留める。 */
+#mini{position:absolute;left:4px;top:3px;height:30px;width:auto;
+      overflow:hidden;z-index:4;border-radius:2px;cursor:pointer;
+      box-shadow:0 0 0 1px var(--wk-border);-webkit-tap-highlight-color:transparent;}
+#mini:active{opacity:.7;}
+#mini img{height:100%;width:auto;display:block;pointer-events:none;}
+
+/* 機種の要点スペック(2026-08-04・谷川氏指示「筐体画像をタップすると要点をまとめた
+   スペックが出てくるようにして」)。台番カード(z-index:100)より前に出す。
+   中身は メーカー/型式/機械割/導入開始/評価 と、機種概要の箇条書き。 */
+#specModal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:120;}
+#specCard{position:absolute;left:50%;transform:translateX(-50%);width:min(92vw,400px);
+  background:var(--card-bg);color:var(--text);border-radius:14px;padding:10px 12px;
+  overflow:auto;box-shadow:0 12px 34px rgba(0,0,0,.45);}
+#specCard .sclose{float:right;border:none;background:var(--closex-bg);
+  color:var(--closex-color);font-size:11.5px;font-weight:bold;border-radius:8px;
+  padding:2px 10px;margin-left:8px;min-height:30px;font-family:inherit;}
+#specCard .shead{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+#specCard .shead img{height:64px;width:auto;border-radius:3px;
+  box-shadow:0 0 0 1px var(--wk-border);cursor:zoom-in;}
+
+/* 筐体写真を大きく見る(2026-08-04・谷川氏指示「左上の機種筐体画像をさらにタップ
+   したら筐体画像がアップで大きく出るように」)。スペック画面(z-index:120)より前。
+   入れ物はJSがその場で作るので shell.html には無い。 */
+#photoOv{position:fixed;inset:0;z-index:140;background:rgba(0,0,0,.90);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;padding:16px;cursor:zoom-out;}
+#photoOv[hidden]{display:none;}
+/* 縦長の筐体写真なので**高さを先に決める**(width:auto だと元の大きさのままで、
+   拡大したのに小さいままに見える。実測: 保存してある写真は高さ320px)。 */
+#photoOv #photoImg{height:76vh;width:auto;max-width:94vw;
+  object-fit:contain;border-radius:6px;background:#ffffff;
+  box-shadow:0 10px 34px rgba(0,0,0,.55);}
+/* ゲームフロー図のように極端に縦長のものは**幅を先に決めて縦へ流す**
+   (2026-08-04・一撃の図は 560×2398 = 縦が横の4.3倍。高さ76vhに合わせると
+    幅が画面の2割ほどしかない短冊になり、文字が読めない)。
+   縦横比が1.6を超えたときだけ JS が .tall を付ける。 */
+#photoOv.tall{justify-content:flex-start;overflow:auto;-webkit-overflow-scrolling:touch;}
+#photoOv.tall #photoImg{width:94vw;height:auto;max-width:94vw;max-height:none;}
+#photoOv.tall .pvhint{position:sticky;bottom:0;}
+#photoOv .pvcap{color:#ffffff;font-size:13.5px;font-weight:bold;text-align:center;
+  line-height:1.35;max-width:94vw;}
+#photoOv .pvhint{color:#c9c9c9;font-size:11.5px;}
+#photoOv .pvclose{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);
+  right:12px;border:none;border-radius:8px;padding:6px 12px;min-height:34px;
+  background:rgba(255,255,255,.92);color:#1F3864;font-size:12.5px;font-weight:bold;
+  font-family:inherit;}
+#specCard .sname{font-size:13.5px;font-weight:bold;line-height:1.3;}
+#specCard .srow{display:flex;gap:8px;font-size:12px;padding:3px 0;
+  border-bottom:1px solid var(--border-th);}
+#specCard .sk{width:5.2em;flex:none;color:var(--sub-color);}
+/* 値に添える一言の説明(MY・TYなどの業界用語・2026-08-04・谷川氏指示)。
+   項目名の欄(5.2em)は狭すぎて5行に割れるので、値の下へ置く。 */
+#specCard .sv .snote{display:block;font-style:normal;font-size:10px;
+  color:var(--sub-color);line-height:1.45;margin-top:2px;}
+#specCard .sv{flex:1;}
+#specCard .sabout{margin-top:8px;}
+#specCard .sabout ul{margin:0;padding-left:17px;font-size:12px;line-height:1.6;}
+#specCard .snone{font-size:12px;color:var(--sub-color);padding:6px 0;}
+/* AT/ST/ボーナス・上位モードの解説(2026-08-04)。全部開くと長すぎるので畳んでおく。 */
+#specCard .ssecs{margin-top:8px;}
+#specCard details{border:1px solid var(--border-th);border-radius:8px;margin-bottom:5px;}
+#specCard summary{font-size:12px;font-weight:bold;padding:6px 9px;cursor:pointer;
+  list-style:none;-webkit-tap-highlight-color:transparent;}
+#specCard summary::-webkit-details-marker{display:none;}
+#specCard summary::before{content:"＋ ";color:var(--sub-color);}
+#specCard details[open] summary::before{content:"− ";}
+#specCard .sbody{font-size:12px;line-height:1.6;padding:0 9px 8px;
+  white-space:pre-wrap;color:var(--text);}
+/* 利用者評価(項目別)と口コミ */
+#specCard .saxes{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;}
+#specCard .sax{font-size:11px;background:var(--total-bg);border-radius:8px;
+  padding:3px 7px;color:var(--text);}
+#specCard .sax b{margin-right:4px;color:var(--btn-accent);}
+/* 項目別評価の六角形(2026-08-04・谷川氏指示「評価の部分を六角形のパラメーターに」)。
+   5点満点を半径にとる。目盛りは薄く、値の面だけ色を乗せて形で強弱が分かるようにする。 */
+#specCard .sradar{margin:10px 0 2px;text-align:center;}
+#specCard .sradar svg{width:100%;max-width:300px;height:auto;}
+#specCard .sradar .rg{fill:none;stroke:var(--wk-border);stroke-width:.6;}
+#specCard .sradar .rs{stroke:var(--wk-border);stroke-width:.6;}
+#specCard .sradar .rv{fill:rgba(31,56,100,.26);stroke:#1F3864;stroke-width:1.6;
+  stroke-linejoin:round;}
+#specCard .sradar .rd{fill:#1F3864;}
+#specCard .sradar .rt{font-size:7.4px;fill:var(--sub-color);font-weight:bold;}
+#specCard .sradar .rn{font-size:8.4px;fill:var(--btn-accent);font-weight:bold;}
+:root[data-theme="dark"] #specCard .sradar .rv{fill:rgba(138,180,248,.28);stroke:#8ab4f8;}
+:root[data-theme="dark"] #specCard .sradar .rd{fill:#8ab4f8;}
+#specCard .svoice{margin-top:10px;}
+#specCard .svhead{font-size:12px;font-weight:bold;margin-bottom:4px;}
+/* 口コミの見出し(2026-08-06・谷川氏指示「口コミは口コミ数追加」「全部見るボタンを
+   口コミの文字の右側辺りに作る」)。件数は見出しのすぐ隣、ボタンはその右に置く。
+   ボタンは押せると分かる形にしつつ、口コミ本文より目立たない大きさにとどめる。 */
+#specCard .svoice .svhead{display:flex;align-items:center;gap:8px;}
+#specCard .svn{font-weight:normal;font-size:11px;color:var(--sub-color);}
+#specCard .svall{margin-left:auto;min-height:26px;padding:2px 12px;
+  border:1.5px solid var(--wk-border);border-radius:13px;
+  background:var(--card-bg);color:var(--text);
+  font-family:inherit;font-size:11px;font-weight:bold;white-space:nowrap;
+  -webkit-tap-highlight-color:transparent;}
+#specCard .svall:disabled{opacity:.55;}
+#specCard .svoice ul{margin:0;padding-left:0;list-style:none;}
+#specCard .svoice li{font-size:11.5px;line-height:1.55;padding:5px 0;
+  border-top:1px solid var(--border-th);}
+#specCard .svp{display:inline-block;min-width:2.4em;margin-right:6px;
+  font-weight:bold;color:var(--btn-accent);}
+/* 打ち方・ゲームフロー・リール配列(2026-08-04)。押すと本文と画像が出る。
+   画像は横幅いっぱいまで(停止例やフロー図は細部が読めないと意味がない)。 */
+/* 開いた節を閉じて頭へ戻すボタン(2026-08-04・谷川氏指示)。中身が長いと見出しまで
+   指で戻るのが手間なので、末尾にも閉じる手段を置く。文字は「↑」だけで足りる。 */
+#specCard .upbk{display:block;width:100%;min-height:34px;margin:6px 0 2px;
+  border:1.5px solid var(--wk-border);border-radius:9px;background:var(--card-bg);
+  color:var(--btn-accent);font:bold 15px/1 inherit;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;}
+#specCard .upbk:active{background:var(--sub7-bg);}
+#specCard .usheet{margin-top:6px;background:var(--total-bg);}
+#specCard .usheet .uh{font-size:11.5px;font-weight:bold;padding:4px 9px 0;}
+#specCard .uimg{padding:4px 9px 9px;}
+#specCard .uimg img{width:100%;height:auto;display:block;margin-bottom:6px;
+  border-radius:4px;background:#fff;}
+/* 画面ごとの見出し付き画像(2026-08-04・谷川氏指示「何の画面か分かるように差し込む」)。
+   元ページで画像の直前に置かれている ［アイテム］ などをそのまま見出しにする。 */
+#specCard .ufig{margin:0;padding:2px 9px 8px;}
+#specCard .ufig figcaption{font-size:11.5px;font-weight:bold;margin-bottom:4px;
+  padding-left:6px;border-left:3px solid var(--btn-accent);line-height:1.4;}
+#specCard .ufig img{width:100%;height:auto;display:block;border-radius:4px;background:#fff;}
+/* 解説の中の表(2026-08-04)。横スクロールが出ないよう幅いっぱいに収め、
+   長い語は折り返す(スマホで横に振るのは操作として重い)。 */
+#specCard .sptb{width:calc(100% - 18px);margin:4px 9px 8px;border-collapse:collapse;
+  font-size:11px;line-height:1.5;table-layout:fixed;}
+#specCard .sptb th,#specCard .sptb td{border:1px solid var(--wk-border);padding:3px 5px;
+  text-align:left;word-break:break-word;vertical-align:top;}
+#specCard .sptb th{background:var(--total-bg);font-weight:bold;}
+/* キャラクターの誕生日(2026-08-04)。誕生日示唆のある機種で狙い日を決めるのに使う */
+#specCard .sbd{margin-top:10px;}
+#specCard .sbdi{display:inline-block;font-size:11px;background:var(--total-bg);
+  border-radius:8px;padding:3px 7px;margin:0 5px 5px 0;}
+/* 顔写真つきの誕生日(2026-08-04・谷川氏指示)。写真は小さすぎると誰か分からず、
+   大きすぎると縦に伸びるので、指のタップ領域と同じくらい(40px)に合わせる。 */
+#specCard .sbdw{display:flex;flex-wrap:wrap;gap:6px;}
+#specCard .sbdi.hasimg{display:flex;align-items:center;gap:6px;padding:4px 8px 4px 4px;
+  margin:0;line-height:1.35;}
+/* 元画像は全身の立ち絵なので、真ん中で正方形に切ると胴体しか残らない(実際にそうなった)。
+   上端に寄せて切り、顔が入るようにする。 */
+#specCard .sbdi.hasimg img{width:42px;height:42px;object-fit:cover;
+  object-position:top center;border-radius:6px;background:#fff;flex:0 0 auto;}
+#specCard .sbdi .sbdt{display:flex;flex-direction:column;}
+#specCard .sbdi.hasimg b{margin:0;}
+#specCard .sbdi b{margin-right:5px;color:var(--btn-accent);}
+/* 業界の記念日(2026-08-04)。キャラの誕生日と混ざらないよう見出しを分け、色も変える。 */
+#specCard .svhead.sanhd{margin-top:8px;}
+#specCard .sbdi.sanni{background:rgba(198,40,40,.10);}
+#specCard .sbdi.sanni b{color:#c62828;}
+:root[data-theme="dark"] #specCard .sbdi.sanni{background:rgba(227,93,93,.18);}
+:root[data-theme="dark"] #specCard .sbdi.sanni b{color:#ff8a80;}
+/* 数字の出どころ。手で調べた項目があるときだけ出す */
+#specCard .ssrc{margin-top:10px;font-size:10.5px;color:var(--sub-color);
+  line-height:1.5;}
+
+/* 入替の内訳パネル(2026-08-04・谷川氏指示「新台/増台/減台/移動台/撤去台をパッと見て分かるように」)。
+   スマホ前提なので横スクロールはさせない。1行2〜3枚の格子に筐体画像＋機種名＋台数を並べる。 */
+#noticeCard .icat{margin:10px 0 4px;}
+#noticeCard .ihead{display:flex;align-items:center;gap:8px;margin:0 0 6px;}
+#noticeCard .ibadge{background:var(--ic,#555);color:#fff;font-weight:bold;font-size:13px;
+  border-radius:4px;padding:2px 9px;letter-spacing:.04em;}
+#noticeCard .icnt{font-size:12px;opacity:.75;}
+#noticeCard .ilist{list-style:none;margin:0;padding:0;display:grid;gap:7px;
+  grid-template-columns:repeat(auto-fill,minmax(88px,1fr));}
+#noticeCard .icard{display:flex;flex-direction:column;align-items:center;gap:2px;
+  border:1px solid rgba(128,128,128,.35);border-radius:6px;padding:5px 3px 4px;}
+#noticeCard .ipic{display:flex;align-items:center;justify-content:center;
+  width:100%;height:62px;overflow:hidden;}
+#noticeCard .ipic img{max-height:62px;max-width:100%;object-fit:contain;}
+#noticeCard .noimg{font-size:10px;opacity:.5;}
+#noticeCard .iname{font-size:10.5px;line-height:1.25;text-align:center;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+#noticeCard .inum{font-size:11px;font-weight:bold;}
+
+/* 丸括弧の注記を途中で割らない(2026-08-04・谷川氏指示「中途半端なところで行が
+   かわっている」)。fmt() が短い注記だけこれで括る。 */
+.nb{white-space:nowrap;}
+
+/* 記念日を押して由来を読む(2026-08-04・谷川氏指示) */
+#specCard .sanni.has-w{border:none;font-family:inherit;cursor:pointer;
+  padding:3px 9px;min-height:26px;}
+#specCard .sanni.has-w.is-on{outline:2px solid #c62828;outline-offset:-2px;}
+#specCard .sanniw{margin:6px 0 2px;padding:8px 10px;border-radius:8px;
+  background:var(--total-bg);border-left:3px solid #c62828;}
+#specCard .sanniw[hidden]{display:none;}
+#specCard .sanniwt{font-size:12px;font-weight:bold;margin-bottom:4px;}
+#specCard .sanniwt b{color:#c62828;margin-right:6px;}
+#specCard .sanniwb{font-size:12px;line-height:1.55;}
+/* 記念日にこの店で本当に出ていたか(2026-08-04・谷川氏の着想「記念日を特定日の分析に
+   使う」)。由来の下に実データの結果を1つの箱にまとめる。数字が主役なので枠で囲う。 */
+#specCard .sanniwr{margin-top:7px;padding:6px 8px;border-radius:6px;
+  background:rgba(31,56,100,.07);font-size:11.5px;line-height:1.6;}
+#specCard .sanniwrh{font-weight:bold;margin-bottom:2px;}
+#specCard .sanniwrd{font-weight:bold;margin-top:2px;}
+#specCard .sanniws{font-size:10.5px;color:var(--sub-color);margin-top:5px;}
+
+/* 押して選ぶ絞り込み条件(2026-08-04・末尾/位置区分/曜日/ゾロ目の日) */
+#filterCard .fchips{display:block;}
+#filterCard .fchips .ftx{display:block;font-size:12.5px;font-weight:bold;margin-bottom:6px;}
+#filterCard .fchips .ftx em{display:block;font-style:normal;font-weight:normal;
+  font-size:11px;color:var(--sub-color);margin-top:2px;}
+#filterCard .fchip{display:flex;flex-wrap:wrap;gap:6px;}
+#filterCard .fchip .ch{border:1px solid var(--border-th);background:var(--card-bg);
+  color:inherit;border-radius:999px;padding:5px 11px;min-height:30px;font-size:12.5px;
+  font-family:inherit;line-height:1.1;}
+#filterCard .fchip .ch.on{background:#1F3864;border-color:#1F3864;color:#ffffff;
+  font-weight:bold;}
+/* 使えない期間(その日の午前中の数字が無いとき)は暗くして押せなくする(2026-08-11) */
+#filterCard .fchip .ch:disabled{opacity:.35;}
+/* 設定推定の3つに付ける赤字の注意書き(2026-08-13・谷川氏指示
+   「赤文字でノーマル機種だけに限定して絞り込まれることを書いておく」)。
+   ボタンで選ばせるのをやめ、注記で伝える形にした。 */
+#filterCard .fnote{color:#c62828;font-size:11.5px;font-weight:bold;line-height:1.45;
+  padding-top:2px;padding-bottom:2px;}
+:root[data-theme="dark"] #filterCard .fnote{color:#ef8f8f;}
+/* ブドウ・ベルの目押しの前提(2026-08-13)。入力欄の上に小さく置く。
+   .frow の中に入るので、見出しと入力欄の間だけ空ける。 */
+#filterCard .fklv{margin:4px 0 6px;}
+#filterCard .fklv .ch{padding:3px 10px;min-height:26px;font-size:11.5px;}
+/* 期間は入力欄の**上**に置く(2026-08-11・谷川氏指示「ボタンを作る。その下に
+   出率入力するものを入れる」)。ボタン行と入力欄の間だけ少し空ける。
+   2026-08-12から差枚・出率で別々に持たず、パネル全体で1つ(#fPer)。 */
+#filterCard #fPer{margin:2px 0 4px;}
+/* 期間の見出しに添える必須の注記(2026-08-12・谷川氏指示「※期間選択必須を赤の太字で」)。
+   期間が下の数値条件すべてに効くので、選び忘れると結果の意味が変わる。 */
+#filterCard .freq{color:#C0202A;font-weight:bold;font-size:11.5px;margin-left:6px;}
+:root[data-theme="dark"] #filterCard .freq{color:#ff8a80;}
+/* 期間の行だけは上下に区切りを入れて「ここから下が数値条件」と分かるようにする */
+#filterCard #fPerRow{border-bottom:1px solid var(--wk-border);padding-bottom:8px;
+  margin-bottom:2px;}
+/* 日付を選ぶカレンダー(2026-08-12・谷川氏指示)。データのある日だけ明るく押せる。
+   幅320pxでも7列が収まるよう、1マスは可変(1fr)にして字だけ小さくする。 */
+#fCal{margin-top:8px;}
+#fCal .fc-h{display:flex;justify-content:space-between;align-items:center;gap:8px;
+  font-size:11.5px;color:var(--sub-color);margin-bottom:4px;}
+#fCal .fc-b{display:flex;gap:6px;}
+#fCal .fc-b button{min-height:28px;padding:2px 9px;font-size:11px;
+  border:1px solid var(--wk-border);border-radius:14px;background:var(--card-bg);
+  color:var(--text);font-family:inherit;white-space:nowrap;}
+#fCal .fc-m{margin-bottom:8px;}
+#fCal .fc-mn{font-size:12px;font-weight:bold;margin-bottom:3px;}
+#fCal .fc-g{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+#fCal .fc-w{font-size:10px;color:var(--sub-color);text-align:center;padding:1px 0;}
+#fCal .fc-w.fc-sun{color:#C0202A;}
+#fCal .fc-w.fc-sat{color:#1F5FB4;}
+#fCal .fc-e{min-height:30px;}
+/* データの無い日。押せないことが一目で分かるよう地色も枠も持たせない */
+#fCal .fc-d{min-height:30px;display:flex;align-items:center;justify-content:center;
+  font-size:12px;border-radius:6px;font-family:inherit;}
+#fCal .fc-off{color:var(--sub-color);opacity:.28;}
+/* データのある日。押せる=明るい */
+#fCal .fc-on{border:1px solid var(--border-th);background:var(--card-bg);
+  color:var(--text);font-weight:bold;-webkit-tap-highlight-color:transparent;}
+#fCal .fc-on.is-on{background:#1F3864;border-color:#1F3864;color:#ffffff;}
+:root[data-theme="dark"] #fCal .fc-on.is-on{background:#8ab4f8;border-color:#8ab4f8;
+  color:#10161f;}
+#fCal .fc-none{font-size:12px;color:var(--sub-color);}
+
+/* 移動台の道すじ(2026-08-04・谷川氏指示)。元の位置と新しい位置を**ゆっくり**光らせ、
+   その間を矢印で引っ張る。太さは画面上で一定にする(盤面はCSSで縮小されるため)。 */
+/* **矢印は光らせた台(z-index:11)より前に置く**(2026-08-05・谷川氏報告
+   「戦コレ6だけ機種名タップしてもアニメーション出ない」の真因)。
+   矢印は台番の集まりの「箱の中心どうし」を結ぶので、島の中で近い所へ移った機種は
+   線の全体が箱の中に収まる。後ろに描いていると台番セルに覆われて1本も見えない
+   (実測: ヴヴヴ2・マギレコ・ゴッドイーター・かぐや様・モンハンライズも同様だった)。 */
+/* **will-change は使わない**(2026-08-10に一度入れて、同日外した)。
+   線の描き直しを盤面から切り離す狙いで will-change:transform を付けたが、
+   iOSでは落ちる症状が残った。この指定は矢印を専用の面に載せる=**盤面の縮小率とは
+   別に実寸ぶんの下地を確保されうる**ため、対策のつもりで逆に重くしている疑いがある。
+   いまは JS 側で(1)SVGを線の外接矩形まで縮め(2)矢印を出すときは盤面ごと引くので、
+   描き直しの面積そのものが小さい。余計な面を作らないほうが安全。 */
+#mvArrow{position:absolute;left:0;top:0;z-index:12;overflow:visible;
+  pointer-events:none;}
+/* **矢印は押しても反応しない**(2026-08-05・谷川氏指示「矢印本体を押した時に解除
+   しないように。解除は矢印を消すボタンだけにして」)。線は盤面の広い範囲を横切るので、
+   押せる状態だと台を見ようとして触っただけで消えてしまう。SVG全体の
+   pointer-events:none をそのまま効かせ、線の上の指は下の台番セルへ素通りさせる
+   (2026-08-04にあった当たり判定用の透明な太線 .mvhit は役目が無くなったので外した)。 */
+#mvArrow{transition:opacity .35s ease;}
+#mvArrow .mvpath{stroke-width:calc(3px / var(--zsc,1));}
+/* 暗くした盤面の上で線が沈まないよう、黒を薄く1枚だけ敷く(色は足さない) */
+#mvArrow .mvglow{stroke-width:calc(5.4px / var(--zsc,1));}
+/* 穂先。大きさは JS が scale(1/倍率) で画面上一定にする。
+   着いた瞬間だけ軽く踏み込む(1回だけ・0.42秒)。派手にしない。 */
+#mvArrow .mvhead{pointer-events:none;}
+#mvArrow .mvhead.arrived{animation:mvland .42s cubic-bezier(.34,1.56,.64,1) 1;}
+@keyframes mvland{0%{opacity:1;}45%{opacity:.55;}100%{opacity:1;}}
+/* 道すじを出している間は他の台を暗くする(2026-08-04・谷川氏指示)。
+   830枚のセルを1枚ずつ薄くすると重いので、**幕を1枚かぶせる**。
+   元と先の台は幕より前(z-index:11)に出るので明るいまま残る。 */
+#mvVeil{position:absolute;left:0;top:0;z-index:9;background:rgba(0,0,0,.55);
+  pointer-events:none;}
+:root[data-theme="dark"] #mvVeil{background:rgba(0,0,0,.62);}
+/* 矢印を消すボタン。拡大解除(#zoomOut)と同じ並びで、その1段上に出す。
+   位置は fitTabbar() が下部バーと一緒に動かす(ピンチで寄せても手元に残す)。 */
+#mvClose{position:fixed;right:12px;bottom:calc(var(--tbh,104px) + 12px);z-index:70;
+  display:none;align-items:center;gap:6px;border:none;border-radius:999px;
+  padding:0 14px;min-height:38px;background:rgba(255,152,0,.96);color:#20160a;
+  font-size:12.5px;font-weight:bold;font-family:inherit;
+  box-shadow:0 3px 12px rgba(0,0,0,.3);}
+#mvClose.show{display:flex;}
+/* 絞り込みの解除(2026-08-12)。矢印を消すボタンと同じ形・同じ場所の並びで、
+   色だけ絞り込みの光と同じ黄色にする(何を消すボタンなのかを色で示す)。
+   両方出るときは fitTabbar() がこちらをさらに1段上へ動かす。 */
+#ftClose{position:fixed;right:12px;bottom:calc(var(--tbh,104px) + 12px);z-index:70;
+  display:none;align-items:center;gap:6px;border:none;border-radius:999px;
+  padding:0 14px;min-height:38px;background:rgba(255,202,40,.96);color:#241d05;
+  font-size:12.5px;font-weight:bold;font-family:inherit;
+  box-shadow:0 3px 12px rgba(0,0,0,.3);}
+#ftClose.show{display:flex;}
+/* 「全体に戻す」と同じ場所なので、拡大中は fitTabbar() が1段上へ動かす */
+/* 幕(z-index:9)より前に出す=暗くならない */
+.tap.mv-from{outline:calc(2.6px / var(--zsc,1)) solid #ff9800;outline-offset:calc(-2.6px / var(--zsc,1));
+  z-index:11;animation:mvglow 2.2s ease-in-out infinite;}
+.tap.mv-to{outline:calc(2.6px / var(--zsc,1)) solid #ffd54f;outline-offset:calc(-2.6px / var(--zsc,1));
+  z-index:11;animation:mvglow 2.2s ease-in-out infinite;}
+/* 明滅は filter(brightness) ではなく opacity で行う(2026-08-10)。
+   filter のアニメーションは1コマごとに再描画で、元38+先40=78セルが同時に回すと
+   iOSでは矢印の線の描画と合わさって画面ごと落ちていた(画面収録中だけ動く=
+   収録で描画経路が変わると平気、という報告と整合)。opacity は合成だけで済む。 */
+@keyframes mvglow{0%,100%{opacity:1;}50%{opacity:.62;}}
+@media (prefers-reduced-motion: reduce){
+  .tap.mv-from,.tap.mv-to{animation:none;}
+  #mvArrow{transition:none !important;}
+  #mvArrow .mvhead.arrived{animation:none;}
+}
+/* 新台の機種名ラベル(2026-08-05・谷川氏指示「新台と増台が同じ機種名の薄赤になってるので
+   新台は違う色にして常にゆらゆら燃えてるエフェクトをかけて欲しい」)。
+   島図xlsxの下地は新台も増台も薄赤(FFC7CE)なので、画面側で新台だけ塗り替える。
+   セルの背景はHTMLのinline styleで書かれているため、**!important でないと勝てない**。
+   炎は縦長のグラデーションを上下に流し、明るさを揺らして作る(画像もSVGも使わない)。
+   太さ/にじみは画面上で一定にしたいので --zsc(今の倍率)で割る。 */
+/* **下地の色は必ず別に指定する**(2026-08-05)。グラデーション(background-image)だけだと
+   背景色は transparent のままで、暗い配色では下の黒がそのまま透ける=文字が読めない。
+   検証(verify_shimaheat_visible.py)も「塗り無し」と見てコントラスト1.07で落ちた。
+   文字#2B1400 に対し下地#FF9800 で8.1、いちばん暗い#E65100 でも4.6ある。 */
+[data-lbl].lbl-new{
+  background-color:#ff9800 !important;
+  background-image:linear-gradient(0deg,#e65100 0%,#ff6d00 30%,#ff9800 55%,
+                                   #ffc107 78%,#ffe082 100%) !important;
+  background-size:100% 260% !important;
+  color:#2b1400 !important;
+  animation:lblfire 2.4s ease-in-out infinite;
+}
+@keyframes lblfire{
+  0%,100%{background-position:50% 100%;filter:brightness(1);
+          box-shadow:0 0 calc(3px / var(--zsc,1)) rgba(255,109,0,.55);}
+  35%    {background-position:50% 22%;filter:brightness(1.16);
+          box-shadow:0 0 calc(6px / var(--zsc,1)) rgba(255,152,0,.9);}
+  65%    {background-position:50% 8%;filter:brightness(1.06);
+          box-shadow:0 0 calc(4px / var(--zsc,1)) rgba(255,193,7,.75);}
+}
+@media (prefers-reduced-motion: reduce){
+  [data-lbl].lbl-new{animation:none;background-position:50% 60% !important;}
+}
+/* 機種名を押したときの選択肢(2026-08-05・谷川氏指示「機種名タップ時にそれぞれ選択肢を
+   出すようにして、選択肢をタップして動作するようにしてください」)。
+   入替の内訳(#noticeModal z-index:95)や写真(#photoOv 140)より前に出す。
+   **文字色は自分で var(--text) を書く**(島図の外に作った入れ物は既定が黒のままで、
+   ダーク配色にすると読めなくなる。2026-08-05に資料で同じ事故を起こしている)。 */
+#actPick{position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.55);
+  display:flex;align-items:center;justify-content:center;padding:16px;}
+#actPick[hidden]{display:none;}
+#actCard{width:min(92vw,360px);background:var(--card-bg);color:var(--text);
+  border-radius:14px;padding:14px;box-shadow:0 12px 34px rgba(0,0,0,.45);}
+#actCard h2{margin:0 0 10px;font-size:14.5px;line-height:1.45;color:var(--text);}
+#actCard .apbtn{display:block;width:100%;margin:0 0 8px;min-height:48px;padding:8px 12px;
+  border:1.5px solid var(--btn-bd);border-radius:10px;
+  background:linear-gradient(var(--btn-bg1),var(--btn-bg2));color:var(--btn-fg);
+  font-size:14px;font-family:inherit;font-weight:bold;line-height:1.35;cursor:pointer;}
+#actCard #actClose{display:block;width:100%;min-height:40px;border:none;border-radius:10px;
+  background:transparent;color:var(--sub-color);font-size:13px;font-family:inherit;
+  cursor:pointer;}
+/* 移動台のカードは押せることが分かるようにする */
+#iretae .icard.ismove .iname{text-decoration:underline dotted;text-underline-offset:3px;}
