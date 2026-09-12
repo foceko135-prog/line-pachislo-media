@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=yes,viewport-fit=cover">
+<title>シマヒート｜熱田 島図ヒート 6/9〜8/18</title>
+<!-- iOSの「ホーム画面に追加」はこのapple-mobile-web-app-titleをアイコン名に使う(<title>は使わない)。
+     2026-07-30谷川氏指示: ホーム画面のアイコン名を「シマヒート」にする。 -->
+<meta name="apple-mobile-web-app-title" content="シマヒート">
+<!-- LINE等にURLを貼った時のプレビュー用OGP(2026-07-30夜新設・谷川氏指示「LINEに貼った時の
+     説明文を要約したシマヒートの説明文に」)。従来はog:description等が一切無く、LINE/Keepメモの
+     プレビューが本文テキスト(島図のラベル文字列)をそのまま拾って「熱田 スロット島図 対象期間：
+     …左 壁 奥 壁…」のような意味不明な抜粋になっていた(谷川氏スクショIMG_1433で確認)。 -->
+<meta name="description" content="プレイランドキャッスル熱田の島図に、台ごとの平均差枚を色で重ねたツール。単日・水曜のみ・直近7日・3週間・全期間をワンタップで切替。台番をタップすると差枚の推移グラフと日ごとの差枚・G数・出率が見られます。毎晩自動更新。">
+<meta property="og:title" content="シマヒート｜熱田の島図で台の調子が見える">
+<meta property="og:description" content="プレイランドキャッスル熱田の島図に、台ごとの平均差枚を色で重ねたツール。単日・水曜のみ・直近7日・3週間・全期間をワンタップで切替。台番をタップすると差枚の推移グラフと日ごとの差枚・G数・出率が見られます。毎晩自動更新。">
+<meta property="og:image" content="https://pachi-media.pages.dev/atsuta/icons/icon-1024.png">
+<meta property="og:type" content="website">
+<!-- ホーム画面アイコン(2026-07-30新設・make_shimaheat_icon.py生成)。last7.htmlは毎晩
+     atsuta/<date>/配下の新フォルダに生成されるため、日付フォルダに依存しない絶対パスで参照する
+     (アイコン本体はatsuta/icons/に固定配置・日付フォルダには複製しない)。 -->
+<link rel="apple-touch-icon" href="/atsuta/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/atsuta/icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/atsuta/icons/favicon-32.png">
+<!-- アプリ化(2026-07-31・第1段階)。ホーム画面から開いたときにSafariのURLバーを出さず、
+     単独アプリの見た目にするための宣言。
+     - manifestのdisplay:standalone … MDNの定義「The browser will exclude UI elements such as
+       a URL bar」。iOS 26以降はホーム画面追加時に既定でWebアプリとして開く挙動になっている。
+     - apple-mobile-web-app-capable … iOS 26より前のSafari向けの従来指定。両方入れておく。
+     - theme-color … ステータスバー周辺の色。ライト/ダークで出し分ける。
+     - viewport-fit=cover + env(safe-area-inset-*) … ノッチ/ホームバーに潜り込まないための余白。
+     副次効果として、URLバーの伸縮に由来する「ブルブル」はstandaloneでは起きなくなる見込み。 -->
+<link rel="manifest" href="/atsuta/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)">
+<!-- ライト/ダーク切替(2026-07-30夜新設)。localStorageの保存値を<head>内で同期的に読んで
+     <html>のdata-themeへ即反映することで、CSS適用前の一瞬だけ元の配色が見える「フラッシュ」を防ぐ
+     (bodyの描画やCSS本体より前にこのscriptを置く必要がある)。 -->
+<script>(function(){try{var t=localStorage.getItem("shimaheat-theme")||"light";
+document.documentElement.setAttribute("data-theme",t);}catch(e){}})();</script>
+<link rel="stylesheet" href="app.css?v=d4fb3a3f">
+</head><body>
+<div id="wrap"><div id="stage"><div id="board"></div></div></div>
+<!-- 資料(2026-08-04・谷川氏指示「横スクロールは無しで縦スクロールだけ・節ごとにボタン」)。
+     それまでは島図と同じ盤面をそのまま縮小して出していたので、印刷前提の横長の並びが
+     そのまま画面に出て横スクロールが要った。ここは中身から組み直した普通のHTML。 -->
+<div id="docsPanel" hidden></div>
+<!-- 下部固定ツールバー(2026-07-31・第1段階)。従来は島図の余白(パチンコ島)にボタンを置いて
+     いたが、拡大すると画面外へ消えて探しに戻る必要があった。画面下端に固定すると、どこまで
+     ズーム/パンしても操作が常に手元にある。当たり判定はAppleの44pt・WCAG 2.5.5の44pxを満たす
+     高さにし、ホームバーぶんは env(safe-area-inset-bottom) で確保する。 -->
+<nav id="tabbar" aria-label="操作">
+<!-- データの鮮度(2026-08-01新設)。「いつ時点のデータを見ているか」が画面から分からないと、
+     朝に開いたとき更新済みか判断できない。新しい版が裏で用意できたら、この行が
+     「新しいデータがあります」に変わり、押すと読み込み直す。 -->
+<!-- 新台入替の告知(2026-08-02新設・谷川氏指示)。入替日は朝9:00〜12時ごろに台番と機種が
+     入れ替わるので、その日に島図を見る人へ「今日は配置が変わる」と先に知らせる。
+     中身は notice.json(毎日の告知チェックが書く)。予定が無ければ出さない。 -->
+<!-- バーの開閉つまみ(2026-08-03新設・谷川氏要望)。バーは4段で169px=画面の22%を占めるため、
+     島図を広く見たいときに下へ隠せるようにする。**閉じてもこのつまみは残す**
+     (残さないと戻す手段が画面から消える)。開閉の状態はlocalStorageで覚える。 -->
+<button class="tbgrip" id="barToggle" aria-expanded="true" aria-controls="tbbody"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 10l6 6 6-6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="barToggleTx">操作を隠す</span></button>
+<div class="tbbody" id="tbbody">
+<button class="tbnotice" id="shindai" hidden aria-live="polite"></button>
+<button class="tbstat" id="dataStat" aria-live="polite"></button>
+<!-- 並びは「今日の午前中／単日／水曜のみ」「直近7日／3週間／全期間」の3つずつ2段
+     (2026-08-11・谷川氏指示)。「今日の午前中」も“どの期間の色で島図を見るか”の選択
+     なので、期間の並びの先頭に置く。折り返しはCSS(.tbper)が3つで区切る。 -->
+<!-- 期間の段と、その下の段の入れ物(2026-08-15夕)。スマホでは今までどおり縦に2段。
+     パソコンでは中の段を display:contents にして**8つを1行**に並べる
+     (谷川氏指示「PCは下のボタンを一列表示にする。今日の午前中から左から並べる」)。
+     ★DOMの並びがそのまま左からの順になるので、順番を変えたいときはここを並べ替える。 -->
+<div id="tbmid">
+<div class="tbrow tbper" role="group" aria-label="期間切替と今日の午前中">
+<button class="tbsbtn" id="hiruBtn" aria-label="今日の午前中の途中差枚を島図に出す">今日の午前中</button>
+<button class="pchip" data-p="single">単日</button><button class="pchip" data-p="wed">水曜のみ</button><button class="pchip" data-p="last7">直近7日</button><button class="pchip" data-p="3w">3週間</button><button class="pchip" data-p="all">全期間</button></div>
+<!-- 台入替とオプチャ情報(2026-08-04・谷川氏指示「台入替のボタンを単日の下に設置」
+     「オプチャ情報ボタンを台入替の右側に設置」)。告知帯は入替の前後だけ出る一時的な物
+     なので、いつでも内訳を開ける入口をここに常設する。オプチャ情報はトリノメ
+     (オープンチャット監視ビューア)の熱田を新しいタブで開く。 -->
+<!-- AI予想ランキング(2026-08-14・谷川氏指示「オプチャ情報の右側にAI予想ランキングの
+     ボタン追加。開くと当日のAT機、ノーマル機それぞれでTOP10の機種を根拠、高配分確率、
+     着地予測出率をだす。そして機種を押すとその中でもTOP10の台番を…」)。
+     ★真の「高配分確率」は出せない(ホールが入れた設定は公表されない)ので、
+     計算できる実績へ置き換え、名前も実態に合わせている(谷川氏が案Bを選択):
+       高配分確率   → 「高出率だった割合」(出率103%以上だった台日 ÷ 全台日)
+       着地予測出率 → 「出率の中央値」(平均だと1台の大勝ちで跳ねるため) -->
+<!-- ★「台入替」は2026-08-15夕に**資料へ移した**(谷川氏指示「台入替を資料の方に
+     移設してください」)。下段が2つになり、パソコンでは下のボタンが2行に収まる。
+     入替の内訳そのものは同じ物(noticeCard)で、開く入口だけが変わっている。 -->
+<div class="tbrow tbsub">
+<button class="tbsbtn" id="opechatBtn" aria-label="オープンチャットの熱田の書き込みを見る">オプチャ情報</button>
+<button class="tbsbtn" id="aiBtn" aria-label="AI予想ランキングを見る">AI予想</button>
+<!-- 狙い方別 期待値表(2026-08-15夕・谷川氏指示「期待値表を絞り込みの中ではなく
+     AI予想の右側に移設」)。同じ日の昼に絞り込みパネルへ入れたが、狙い方を選ぶ物なので
+     AI予想の隣が定位置という判断。中身は同じ nerai.<hash>.json。 -->
+<button class="tbsbtn" id="nrBtn" aria-label="狙い方別の期待値表を見る">期待値表</button>
+</div>
+</div><!-- /tbmid -->
+<!-- 今日の午前中(2026-08-10・谷川氏指示「昼の途中経過を島図に出す」)は、2026-08-11に
+     この位置(単独の段)から期間の並びの先頭へ移した。昼スナップは12:30に取れるが、
+     このHTMLは夜間に作られているので焼き込めない。押したときに hiru.json を読んで
+     島図の色だけ差し替える。もう一度押すと戻る。 -->
+<div class="tbrow tbact">
+<button class="tbtn" id="searchBtn" aria-label="台番や機種名で探す"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="2.1"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg><span>検索</span></button>
+<button class="tbtn" id="filterBtn" aria-label="条件で台を絞り込む"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5h16l-6.2 7.3v5.5L10.2 20v-7.7z" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"/></svg><span>絞り込み</span></button>
+<button class="tbtn" id="themeBtn" aria-label="配色を切り替える"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg><span>配色</span><span class="sr" id="themeSub"></span></button>
+<button class="tbtn" id="docsBtn" aria-label="凡例・説明書・機種別出率を見る"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 4h9l5 5v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 4v5h5M8 13h7M8 17h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>資料</span></button>
+<button class="tbtn" id="refreshBtn" aria-label="最新に更新して絞り込みをリセット"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M20 4v5h-5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>更新</span></button>
+</div>
+<span class="sr" id="pbrange"></span>
+</div>
+</nav>
+<!-- 拡大中の現在地(2026-08-01新設)。拡大すると島名が画面外へ出て「どこを見ているか」が
+     分からなくなるため、画面の中心にある台の機種名と台番を上に出す。 -->
+<div id="whereChip" aria-live="polite"></div>
+<!-- 島図に浮かせていた凡例(左下の「吸—出」の色帯)は2026-08-06に削除。
+     台番セルに重なるため(谷川氏指示)。色の意味は「資料」タブの凡例表で見る。
+     「色に頼らない表示」の切替は資料タブの凡例の末尾へ移した(app.js buildDocs)。 -->
+<div id="toast" role="status" aria-live="polite"></div>
+<button id="zoomOut" aria-label="島図全体の表示に戻す"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 4H5a1 1 0 0 0-1 1v4M15 4h4a1 1 0 0 1 1 1v4M9 20H5a1 1 0 0 1-1-1v-4M15 20h4a1 1 0 0 0 1-1v-4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>全体に戻す</button>
+<button id="mvClose" aria-label="移動の矢印を消す">✕ 矢印を消す</button>
+<!-- 絞り込みの解除(2026-08-12・谷川氏指示「絞り込み中は島図に絞り込み解除ボタンを出す」)。
+     それまでは光った台を見ている状態から元へ戻すのに、絞り込みパネルを開き直して
+     「クリア」を押す必要があった。検索で光らせているときは文言だけ変えて同じ場所に出す
+     (見た目は同じ黄色の光なので、どちらで光っているかを言葉で示す)。 -->
+<button id="ftClose" aria-label="絞り込みを解除する">✕ 絞り込み解除</button>
+<!-- 機種名を押したときの選択肢(2026-08-05・谷川氏指示「機種名タップ時にそれぞれ選択肢を
+     出すようにして、選択肢をタップして動作するようにしてください」)。入替のあった機種は
+     スペックも場所も見たいので、押した瞬間にどちらかへ決め打ちしない。 -->
+<div id="actPick" hidden><div id="actCard"><h2 id="actTitle"></h2>
+<div id="actList"></div><button id="actClose" type="button">✕ 閉じる</button></div></div>
+<!-- 絞り込みの一覧から開いたときだけ出る戻り口(2026-08-12・谷川氏指示
+     「絞り込んで、台番押した時の画面に、絞り込み画面へ戻れる、戻るボタンを追加」)。
+     一覧で見比べている途中に1台開くと、閉じたあと島図に戻ってしまい、
+     一覧を出し直す手間があった。押すと絞り込みパネルが開いた状態へ戻る。 -->
+<div id="modal"><div id="card"><h2><button id="backFilter" hidden>← 絞り込み</button><button id="closex">✕ 閉じる</button><button id="pinBtn" aria-label="この台をピン留めする">★</button><button id="shareBtn" aria-label="この画面のURLを共有する"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v12M12 3L8 7M12 3l4 4" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg>共有</button><span id="mtitle"></span></h2><div class="sub" id="msub"></div>
+<!-- カードの中にも「今日の午前中」を置く(2026-08-11・谷川氏指示「台番押した時の
+     グラフ画面にも表示させて、午前中ボタンが押された状態にする」)。
+     押すと下部バーの同じボタンを押したのと同じ動きをする(処理は1か所のまま)。 -->
+<!-- パソコンでの2カラム(2026-08-14・谷川氏指示)。中身を左右2つの器に分けておき、
+     スマホでは器を素通しの縦一列のまま(順番も見た目も従来どおり)、
+     広い窓(1000px以上・body.pc2)のときだけ左右に並べる。
+     左=グラフ期間・キャプション・集計/内容詳細・グラフ / 右=日ごとの表。
+     **器を足しただけで並び順は変えていない**ので、スマホの見え方は1つも変わらない。 -->
+<div id="cardL">
+<!-- カードの中にも「今日の午前中」を置く(2026-08-11・谷川氏指示「台番押した時の
+     グラフ画面にも表示させて、午前中ボタンが押された状態にする」)。
+     押すと下部バーの同じボタンを押したのと同じ動きをする(処理は1か所のまま)。 -->
+<div class="mper"><span>グラフ期間</span><button class="mchip" id="mhiruBtn">今日の午前中</button><button class="mchip" data-w="1">単日</button><button class="mchip" id="mdowBtn" data-w="-2" hidden>曜日</button><button class="mchip" data-w="-1">水曜のみ</button><button class="mchip" data-w="7">直近7日</button><button class="mchip is-on" data-w="21">3週間</button><button class="mchip" data-w="0">全期間</button></div>
+<div class="cap" id="mcap"></div>
+<!-- 今日の午前中の実数(2026-08-11・谷川氏指示「午前中に取得したG数、BB、RB、差枚数、
+     ブドウ確率、ベル確率が台番を押したときに見れるように」「機種毎の合計も同じように」)。
+     「今日の午前中」を出しているときだけ現れる。中身は hiru.json の k/m から作る。 -->
+<div id="mhiru" hidden></div>
+<div id="chart"></div>
+</div>
+<div id="cardR">
+<table><thead><tr><th>日付</th><th>当日差枚</th><th>累計差枚</th><th>G数</th><th>出率</th></tr></thead><tbody id="mbody"></tbody></table>
+</div>
+<div id="cardGrip" role="button" aria-label="上へスワイプで閉じる"><span id="gripExt" aria-hidden="true"></span></div>
+</div></div>
+<div id="filterModal"><div id="filterCard">
+<h2><button id="filterClose">✕ 閉じる</button>絞り込み</h2>
+<!-- スクロールするのは**この中身だけ**(2026-08-14)。カード自身をスクロール容器に
+     していたため、下の「島図を見る」を sticky にしても fixed にしても中身と一緒に
+     流れてしまい、手元に残らなかった(webkitで実測)。器と中身を分ければ解決する。 -->
+<div id="fBody">
+<!-- 赤文字は※付きの1行だけにする(2026-08-14・谷川氏指示「ここの文章が全て赤文字に
+     なっているので、本当に重要なだけを※を頭につけて赤文字」)。全部が赤いと、
+     どれが注意書きなのか読み分けられない。期間は下の数値条件すべてに効くので、
+     読み違えると結果の意味ごと変わる＝ここだけが赤に値する。 -->
+<div class="fnote">使いたい欄だけ入れればOKです(空欄は条件になりません)。上限・下限も片方だけで構いません。<br>
+複数入れたときは、そのすべてを満たす台だけが残ります。<br>
+<span class="fwarn">※ 数値の条件は、いちばん上で選んだ「期間」で計算します</span><br>
+条件を入れると自動で絞り込まれ、合った台番と機種名が明るく光ります。「クリア」で元の島図に戻ります。</div>
+<!-- よく使う条件(2026-08-01新設)。朝は時間が無く、毎回3つの欄に数字を入れるのは現実的で
+     ないので、押すだけで条件が入って絞り込みまで走るボタンを置く。値は下の欄に入るので、
+     そこから微調整もできる(ボタンは出発点であって固定の答えではない)。 -->
+<div class="fpre" role="group" aria-label="よく使う条件">
+<button class="pre" data-set="fPer=last7,fVmin=1">直近7日プラス</button>
+<button class="pre" data-set="fPer=last7,fVmin=5000">直近7日 +5000以上</button>
+<button class="pre" data-set="fPer=nd21,fRmin=105">3週間 出率105%以上</button>
+<button class="pre" data-set="fPer=all,fVmin=1">全期間プラス</button>
+<button class="pre" data-set="fPer=single,fVmin=1">前日プラス</button>
+</div>
+<!-- 期間は**パネル全体で1つ**(2026-08-12・谷川氏指示「期間を差枚の欄の上へ1つに
+     まとめる。※期間選択必須を赤の太字で出す」)。それまでは差枚と出率が別々の期間
+     ボタンを持っていて、「直近7日の差枚がプラス かつ 直近7日の出率105%以上」を
+     見たいだけでも2か所を合わせる必要があった。下の数値条件(差枚・出率・総稼働日数・
+     累計G数・1日平均G数・プラス率)はすべてこの期間で計算する。
+     既定は直近7日間(いちばんよく使う)。**未選択の状態は作らない**=期間が無いまま
+     数字だけ入れて「なぜか0台」になるのを防ぐため、注記で必須だと伝える形にした。 -->
+<div class="frow fchips" id="fPerRow"><div class="ftx">期間<span class="freq">※期間選択必須</span><em>下の数値条件をすべてこの期間で見ます（1つだけ選べます）</em></div>
+<div class="fchip fper" id="fPer" role="group" aria-label="集計する期間">
+<button class="ch" data-v="hiru">午前中</button><button class="ch" data-v="single">単日</button>
+<button class="ch" data-v="wed">水曜のみ</button><button class="ch" data-v="last7">直近7日間</button>
+<button class="ch" data-v="nd21">3週間</button><button class="ch" data-v="all">全期間</button>
+<button class="ch" data-v="days">日付を選ぶ</button>
+</div>
+<!-- 年月日付の指定(2026-08-12・谷川氏指示「年月日付指定(複数日選択可)のボタン追加。
+     カレンダー形式でデータがある日付だけ明るく表示して選択可能に」)。
+     「8のつく日だけ」「先週の土日だけ」のような、決まった括りに当てはまらない
+     見方をするためのもの。データの無い日は暗くして押せなくする。 -->
+<div id="fCal" hidden></div></div>
+<!-- 期間のすぐ下に「どの日か・どの台か」を置く(2026-08-14・谷川氏指示
+     「期間の下に曜日、特定日、台番の末尾、位置区分の順番に移動する」)。
+     数字を打たずに押すだけで決まる条件を先に並べ、数値の欄はその後ろへ回した。 -->
+<!-- 曜日(2026-08-11に「集計する日」から改名)。2026-08-14から**集計する日そのものを
+     狭める指定**になった(それまでは下の「選んだ日の差枚合計」の欄でしか効かなかった)。
+     谷川氏指示「選んだ日の差枚合計は既に差枚項目が上部にあって重複するため不要」を受け、
+     欄を廃止するかわりに曜日・特定日を上の数値条件すべてへ効かせている。 -->
+<div class="frow fchips"><div class="ftx">曜日<em>選ぶと、下の数値条件をその曜日の日だけで計算します（複数選べます）</em></div>
+<div class="fchip" id="fDow" role="group" aria-label="曜日">
+<button class="ch" data-v="月">月</button><button class="ch" data-v="火">火</button>
+<button class="ch" data-v="水">水</button><button class="ch" data-v="木">木</button>
+<button class="ch" data-v="金">金</button><button class="ch" data-v="土">土</button>
+<button class="ch" data-v="日">日</button>
+</div></div>
+<!-- 特定日(2026-08-11・谷川氏指示「特定日という項目追加。ゾロ目をここに移動、
+     店毎の特定日を入れる」)。中身は資料の特定日の台帳(熱田が対象のもの)から作る。 -->
+<div class="frow fchips"><div class="ftx">特定日<em>その日だけで計算します（曜日と一緒に選べます）</em></div>
+<div class="fchip" id="fToku" role="group" aria-label="特定日"></div></div>
+<!-- 台そのものの条件(2026-08-04・谷川氏指示「絞り込みに末尾、位置区分、曜日、
+     ゾロ目の日も選べるように」)。押して選ぶ形にする(数字を打たせない)。 -->
+<div class="frow fchips"><div class="ftx">台番の末尾<em>選んだ数字で終わる台だけ</em></div>
+<div class="fchip" id="fSue" role="group" aria-label="台番の末尾">
+<button class="ch" data-v="0">0</button><button class="ch" data-v="1">1</button>
+<button class="ch" data-v="2">2</button><button class="ch" data-v="3">3</button>
+<button class="ch" data-v="4">4</button><button class="ch" data-v="5">5</button>
+<button class="ch" data-v="6">6</button><button class="ch" data-v="7">7</button>
+<button class="ch" data-v="8">8</button><button class="ch" data-v="9">9</button>
+</div></div>
+<!-- 位置区分は**マスターの区分をそのまま全部**出す(2026-08-11・谷川氏指示
+     「絞り込みの位置区分 全部の位置区分ボタンだす」)。それまでは外角/外側/中央/
+     内側/内角の5つにまとめていたので、「外角3だけ」のような見方ができなかった。
+     中身は島図のデータから作る(入替で区分が増減しても追従する)。 -->
+<div class="frow fchips"><div class="ftx">位置区分<em>島の中でどこに置かれた台か（複数選べます）</em></div>
+<div class="fchip" id="fPos" role="group" aria-label="位置区分"></div></div>
+<div class="frow"><label><span class="fico fico-7"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="13" width="2.6" height="8" rx="1"/><rect x="5.6" y="9" width="2.6" height="12" rx="1"/><rect x="9.2" y="15" width="2.6" height="6" rx="1"/><rect x="12.8" y="6" width="2.6" height="15" rx="1"/><rect x="16.4" y="11" width="2.6" height="10" rx="1"/><rect x="20" y="3" width="2.6" height="18" rx="1"/></svg></span><span class="ftx">差枚<em>選んだ期間でどれだけ出たか</em></span></label>
+  <input id="fVmin" type="number" placeholder="以上"> 〜 <input id="fVmax" type="number" placeholder="以下">
+</div>
+<div class="frow"><label><span class="fico fico-r"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.4 15.6L15.6 8.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="9.1" cy="9.1" r="1.9" fill="currentColor"/><circle cx="14.9" cy="14.9" r="1.9" fill="currentColor"/></svg></span><span class="ftx">出率(%)<em>100%超で客側プラス</em></span></label>
+  <input id="fRmin" type="number" placeholder="以上"> 〜 <input id="fRmax" type="number" placeholder="以下">
+</div>
+<!-- プラス率は出率のすぐ下(2026-08-14・谷川氏指示)。どちらも「どれだけ客側に出たか」を
+     見る欄で、出率=出方の強さ／プラス率=出た日の多さ。並べて置くと見比べられる。
+     稼働まわりの3つ(総稼働日数・累計G数・1日平均G数)はその下へ回した。 -->
+<div class="frow"><label><span class="fico fico-p"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18L9.5 11.5L13.5 15L20 6.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M15.4 6.5H20V11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ftx">プラス率(%)<em>差枚がプラスだった日 ÷ 総稼働日数（安定して出ている台を探せます）</em></span></label>
+  <input id="fPmin" type="number" placeholder="以上"> 〜 <input id="fPmax" type="number" placeholder="以下">
+</div>
+<!-- 稼働まわりの4条件(2026-08-12・谷川氏指示「総稼働日数・累計G数・1日平均G数・
+     プラス率を足す」)。差枚と出率だけでは「よく回っている台か」「たまたま1日で
+     出しただけか」が分からなかった。
+     総稼働日数 = 選んだ期間のうち**その台の記録がある日**の数
+     累計G数   = その期間のG数の合計
+     1日平均G数 = 累計G数 ÷ **G数が記録されている日数**(古い日はG数が無いので、
+                  そこを分母に混ぜると平均が実際より低く出る)
+     プラス率  = 差枚がプラスだった日 ÷ 総稼働日数(谷川氏の定義) -->
+<div class="frow"><label><span class="fico fico-n"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="8.5" cy="14.5" r="1.5" fill="currentColor"/><circle cx="12" cy="14.5" r="1.5" fill="currentColor"/><circle cx="15.5" cy="14.5" r="1.5" fill="currentColor"/></svg></span><span class="ftx">総稼働日数(日)<em>選んだ期間のうち、その台の記録がある日数</em></span></label>
+  <input id="fNmin" type="number" placeholder="以上"> 〜 <input id="fNmax" type="number" placeholder="以下">
+</div>
+<div class="frow"><label><span class="fico fico-g"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.4" fill="currentColor"/><path d="M12 3.4v3M12 17.6v3M3.4 12h3M17.6 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span class="ftx">累計G数<em>その期間に回された総ゲーム数</em></span></label>
+  <input id="fGmin" type="number" placeholder="以上"> 〜 <input id="fGmax" type="number" placeholder="以下">
+</div>
+<div class="frow"><label><span class="fico fico-g"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="4.5" y="11" width="4" height="6" rx="1"/><rect x="10" y="7" width="4" height="10" rx="1"/><rect x="15.5" y="13" width="4" height="4" rx="1"/><path d="M3 9h18" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2.6 2.4" stroke-linecap="round"/></svg></span><span class="ftx">1日平均G数<em>1日あたり何ゲーム回っているか（回転の多い台を探せます）</em></span></label>
+  <input id="fAmin" type="number" placeholder="以上"> 〜 <input id="fAmax" type="number" placeholder="以下">
+</div>
+<!-- 設定の推定まわり(2026-08-13・谷川氏指示「絞り込みのプラス率の下に新しく項目追加。
+     ノーマル機種限定／推定設定①〜⑥／RB 1.0〜6.0／ブドウ・ベル 1.0〜6.0」)。
+     回数(BB・RB)は毎晩の蓄積にある15機種ぶんしか無いので、この4つのどれかを使うと
+     自動的にその機種だけが残る。数字は台番カードの「内容詳細」と同じ計算。 -->
+<!-- ノーマル機種限定の3つ(2026-08-14・谷川氏指示「ノーマル限定している項目がわかるように
+     背景色や囲い込みをして視覚的にわかりやすく」)。赤い注記だけだと、下へスクロールした
+     ときにどこまでが限定なのかが分からなくなるため、枠と背景で1つの塊にする。 -->
+<div class="fnorm" id="fNormBox">
+<div class="frow fnote" id="fSetNote">※この枠の中（推定設定・RB・ブドウ／ベル）は、ノーマル機種だけに限定して絞り込まれます</div>
+<div class="frow fchips"><div class="ftx">推定設定<em>BB・RB・ブドウをまとめて見た期待設定を、いちばん近い段で選びます（複数選べます）</em></div>
+<div class="fchip" id="fSet" role="group" aria-label="推定設定">
+<button class="ch" data-v="1">①</button><button class="ch" data-v="2">②</button>
+<button class="ch" data-v="3">③</button><button class="ch" data-v="4">④</button>
+<button class="ch" data-v="5">⑤</button><button class="ch" data-v="6">⑥</button>
+</div>
+</div>
+<div class="frow"><label><span class="fico fico-rb"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7.6" fill="none" stroke="currentColor" stroke-width="2.1"/><circle cx="12" cy="12" r="2.7"/></svg></span><span class="ftx">RB<em>RB確率だけで見た推定設定（1.0〜6.0）</em></span></label>
+  <input id="fBmin" type="number" step="0.1" min="1" max="6" placeholder="以上"> 〜 <input id="fBmax" type="number" step="0.1" min="1" max="6" placeholder="以下">
+</div>
+<div class="frow"><label><span class="fico fico-ko"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="14.5" r="3.1"/><circle cx="15" cy="14.5" r="3.1"/><circle cx="12" cy="9.2" r="3.1"/><path d="M12 6.1V3.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><span class="ftx">ブドウ・ベル<em>逆算した小役の出方で見た推定設定（1.0〜6.0）</em></span></label>
+  <!-- 目押しの前提を選ぶ(2026-08-13・谷川氏指示「適当とチェリー狙いを選べるボタン」)。
+       前任者の目押しで逆算の値が変わるため、どちらの前提で見るかで推定設定が動く。
+       どちらか一方だけが必ず選ばれている形(既定はチェリー狙い＝台番カードの
+       期待設定と同じ物差し)。 -->
+  <div class="fchip fklv" id="fKlv" role="group" aria-label="目押しの前提">
+  <button class="ch" data-v="適当">適当</button><button class="ch" data-v="チェリー狙い">チェリー狙い</button>
+  </div>
+  <input id="fKmin" type="number" step="0.1" min="1" max="6" placeholder="以上"> 〜 <input id="fKmax" type="number" step="0.1" min="1" max="6" placeholder="以下">
+</div>
+</div><!-- /fNormBox ノーマル機種限定はここまで -->
+<!-- 台そのものの条件(2026-08-04・谷川氏指示「絞り込みに末尾、位置区分、曜日、
+     ゾロ目の日も選べるように」)。押して選ぶ形にする(数字を打たせない)。
+     何も選ばなければ条件にならないのは上の欄と同じ。 -->
+<!-- 操作ボタンと該当台数は **#fBody の外(器の側)** へ移した(2026-08-15夕)。
+     ここにあった頃は、条件を下まで読み進めるとボタンが画面外へ流れていた。 -->
+<!-- 絞り込んだ台の一覧(2026-08-12・谷川氏指示「絞り込んだ台の絞り込み台一覧ボタン追加。
+     機種ごとに表にして視覚的に見やすいように」)。島図の光だけだと、どの機種に何台
+     当たったのかを数えるのに島全体を目で追う必要があった。 -->
+<div id="fListBox" hidden></div>
+<!-- 傾向分析レポート(2026-08-14・谷川氏指示「絞り込みパネルに傾向分析レポートのボタンを
+     新設。押すと絞り込み内容に応じて分析し、表形式で見やすくまとめる。どのような傾向や
+     癖が見られるか／おすすめの機種や台番／絞り込みの意図を汲み取り、さらに絞るなら
+     どの絞り込みがおすすめか」)。一覧が「当たった台を並べる」ものなのに対し、
+     こちらは「当たった台の集合が全体と何が違うか」を見る。 -->
+<div id="fRepBox" hidden></div>
+<!-- ★期待値表はここにあったが、2026-08-15夕に**下部バーの「期待値表」へ移した**
+     (谷川氏指示「AI予想の右側に移設」)。同じ日の昼に資料→絞り込みへ移したばかりで、
+     2回引っ越している。開く物(nrHtml)はずっと同じ。 -->
+</div><!-- /fBody スクロールする中身はここまで -->
+<!-- ここから下は器の側。どこまでスクロールしても動かない(2026-08-15夕・谷川氏指示)。
+     上段=操作(絞り込む・クリア) / 下段=見るもの(一覧・レポート・期待値表)。 -->
+<div id="fBar">
+<div id="fCount"></div>
+<div class="fbtns"><button id="fApply">絞り込む</button><button id="fClear">クリア</button></div>
+<div class="fbtns fbtns2"><button id="fList" disabled>絞り込み台一覧</button><button id="fRep" disabled>傾向分析レポート</button></div>
+</div>
+<!-- 島図を見るボタン(2026-08-14・谷川氏指示「絞り込みで何かしら入力したり選択したら、
+     絞り込みの画面中は島図確認のボタンを表示させて追従させる」)。それまでは上部の
+     閉じるボタンまで戻らないと結果を島図で確認できなかった。条件が入っているときだけ出す。
+     **中身の外(器の側)に置く**ので、どこまでスクロールしても手元に残る。 -->
+<button id="fPeek" hidden>🗺️ 島図を見る<span id="fPeekN"></span></button>
+</div></div>
+<!-- 検索パネル(2026-08-01・第2段階)。台番か機種名を入れると候補が出て、押すとその台まで
+     拡大してスクロールし、光って知らせる。機種名で探した場合はその機種の台が全部光る
+     (絞り込みと同じ黄色=結果の見え方を1つに統一する)。 -->
+<div id="searchModal"><div id="searchCard">
+<h2><button id="searchClose">✕ 閉じる</button>検索</h2>
+<div class="fnote">台番(例: 3283)か機種名(例: からくり)を入れてください。<br>
+入力すると下に候補が出ます。候補を押すと、その台まで拡大して光ります。<br>
+機種名で探すと、その機種の台がすべて光ります。</div>
+<div class="frow"><input id="sq" type="text" inputmode="search" enterkeyhint="search"
+  placeholder="台番 または 機種名" autocomplete="off" autocorrect="off" spellcheck="false"></div>
+<div id="sCount"></div>
+<div id="sres"></div>
+<!-- 2026-08-02(谷川氏報告「クリアボタン押してもクリアされない」): このボタンは検索を
+     消すもので、ピンには触れない。ところがピン一覧の**真下**にあったため「ピンを消す
+     ボタン」に見えていた。**ボタンは効き目のある対象のすぐ下に置く**。文言も
+     「クリア」→「検索をクリア」にして、何が消えるのかを名前で分かるようにした。 -->
+<div class="fbtns"><button id="sClear">検索をクリア</button></div>
+<!-- ピン留めした台(2026-08-01新設)。気になる台を覚えておいて、翌日以降も
+     ここから1タップで飛べるようにする。付けるのはカード見出しの★。
+     2026-08-02: 外すのがカードを開いて★を押し直すしか無かったので、ここから
+     1件ずつ(チップの✕)と全部(見出しの「すべて外す」)を外せるようにした。 -->
+<div id="pinBox"><div class="pinHd"><span>★ ピン留めした台</span>
+<button id="pinClear" type="button">すべて外す</button></div><div id="pinList"></div></div>
+</div></div>
+<!-- AI予想ランキング(2026-08-14新設・谷川氏指示)。絞り込みパネルと同じ
+     「見出し / スクロールする中身 / 下端の固定ボタン」の3段構造にする
+     (カード自身をスクロール容器にすると下端のボタンが中身と一緒に流れるため。
+      詳細は memory: shimaheat-scrollcontainer-sticky-2026-08-14)。 -->
+<div id="aiModal"><div id="aiCard">
+<h2><button id="aiClose">✕ 閉じる</button><span id="aiTitle">AI予想ランキング</span></h2>
+<div id="aiBody"></div>
+<button id="aiBack" hidden>← 機種の一覧へ戻る</button>
+</div></div>
+<!-- 狙い方別 期待値表(2026-08-15夕・AI予想の右へ移設)。AI予想のパネルと同じ
+     「見出し / スクロールする中身 / 下端の固定ボタン」の3段構造にする
+     (カード自身をスクロール容器にすると下端のボタンが中身と一緒に流れるため。
+      詳細は memory: shimaheat-scrollcontainer-sticky-2026-08-14)。
+     マスを押すと「今日その狙い方に当てはまる台」の一覧へ進み、戻るで表へ帰る。 -->
+<div id="nrModal"><div id="nrCard">
+<h2><button id="nrClose">✕ 閉じる</button><span id="nrTitle">狙い方別 期待値表</span></h2>
+<div id="nrBody"></div>
+<button id="nrBack" hidden>← 期待値表へ戻る</button>
+</div></div><script src="last7.data.js?v=a042ebdf"></script>
+<script src="app.js?v=cc6fe13e"></script>
+</body></html>
