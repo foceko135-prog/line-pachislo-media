@@ -2698,11 +2698,17 @@ body.kb-on .fbtns2{display:none;}
        verify_shimaheat_pc.py は #tbmid を測るように直してある。 */
   /* ★9つ並ぶので、この段だけ 860px まで広げる(2026-08-15夕に「期待値表」が増えた)。
      760pxのままだと1つ79pxになり、全角6文字が入らない。文字を小さくするより
-     段を広げる方を選んだ(谷川氏から「下部のボタンが小さい」と指摘があったため)。 */
+     段を広げる方を選んだ(谷川氏から「下部のボタンが小さい」と指摘があったため)。
+     ★2026-09-13に 860→1040px。この段のボタンは「答え合わせ」が増えて**10個**に
+       なっており、860pxだと1つ79pxしか無い。「単日 9/12(土)」だけが中身83pxで
+       4pxはみ出していた(verify_shimaheat_pc [2c] が落ちて配信が止まる)。
+       日付は10月から月が2桁になり「単日 10/28(水)」で更に約7px要るので、
+       今ぴったりに合わせず**2桁月でも収まる幅**にしてある。
+       ここでも文字を小さくする方ではなく段を広げる方を選んだ(上と同じ理由)。 */
   #tabbar #tbmid{flex-direction:row;flex-wrap:nowrap;gap:6px;
-    width:100%;max-width:860px;margin-left:auto;margin-right:auto;}
+    width:100%;max-width:1040px;margin-left:auto;margin-right:auto;}
   #tbmid .tbper,#tbmid .tbsub{display:contents;}
-  /* 9つを等分すると1つ約90px。全角6文字(「今日の午前中」「オプチャ情報」)が
+  /* 10個を等分すると1つ約98px。全角6文字(「今日の午前中」「オプチャ情報」)が
      入る大きさとして12.5pxにする(高さは44pxのままなので押しやすさは変わらない)。 */
   #tabbar #tbmid .pchip,#tabbar #tbmid .tbsbtn{
     flex:1 1 0;min-width:0;min-height:44px;font-size:12.5px;
