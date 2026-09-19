@@ -1,0 +1,189 @@
+{
+ "id": "shindai-2026-09-18",
+ "date": "2026-09-18",
+ "days": 3,
+ "title": "3日後 9/18(金) 新台入替",
+ "summary": "パチンコ・スロット28機種100台",
+ "note": "入替日は朝9:00〜12時ごろに台番と機種が入れ替わります。島図はその後の更新で新しい配置になります。",
+ "slot_new": 46,
+ "slot_add": 0,
+ "lines": [
+  "スロット新台 スマスロ交響詩篇エウレカセブン4 HI‐EVOLUTION 6台／Lパチスロ ダンベル何キロ持てる? 6台／いざ!番長 3台／スマスロ 秘宝伝 3台／真打 吉宗 3台／Lパチスロ ありふれた職業で世界最強 3台／Sister Quest 3台／スマスロスーパーブラックジャック 3台／L サラリーマン金太郎 3台／スマスロ BIRDIE WING ‐Golf Girls’ Story‐ 3台／スマスロ ゴールデンカムイ 3台／A-SLOT+ 異世界かるてっと BT 2台／L少女☆歌劇 レヴュースタァライト ‐The SLOT‐ 2台／パチスロ頭文字D 2台／押忍!番長ZERO 1台"
+ ],
+ "detail": {
+  "pachi": [
+   {
+    "name": "P Re:ゼロから始める異世界生活 鬼がかりver.",
+    "n": 12,
+    "add": false,
+    "img": "4046.png"
+   },
+   {
+    "name": "e真・北斗無双 第5章 ドデカSTART",
+    "n": 6,
+    "add": false,
+    "img": "4758.png"
+   },
+   {
+    "name": "ぱちんこ シン・エヴァンゲリオン Type レイ",
+    "n": 6,
+    "add": false,
+    "img": "4452.png"
+   },
+   {
+    "name": "PFうたわれるもの 199ver.",
+    "n": 6,
+    "add": false,
+    "img": "4747.png"
+   },
+   {
+    "name": "eアクダマドライブ",
+    "n": 3,
+    "add": false,
+    "img": "4954.png"
+   },
+   {
+    "name": "eシャーマンキング でっけぇえなver.",
+    "n": 3,
+    "add": false,
+    "img": "4820.png"
+   },
+   {
+    "name": "e黄門ちゃま寿限無 LLサイズ",
+    "n": 3,
+    "add": false,
+    "img": "4835.png"
+   },
+   {
+    "name": "ｅ 東京喰種 超デカ 超一撃 ver.",
+    "n": 3,
+    "add": false,
+    "img": "5024.png"
+   },
+   {
+    "name": "Pとある科学の超電磁砲",
+    "n": 3,
+    "add": false,
+    "img": "4068.png"
+   },
+   {
+    "name": "P北斗の拳 強敵 LT",
+    "n": 3,
+    "add": false,
+    "img": "4503.png"
+   },
+   {
+    "name": "eF戦姫絶唱シンフォギア4 キャロルver.",
+    "n": 2,
+    "add": false,
+    "img": "4684.png"
+   },
+   {
+    "name": "P アズールレーン THE ANIMATION 異次元トリガー",
+    "n": 2,
+    "add": false,
+    "img": "4599.png"
+   },
+   {
+    "name": "P にゃんこ大戦争 多様性のネコ",
+    "n": 2,
+    "add": false,
+    "img": "4657.png"
+   }
+  ],
+  "slot": [
+   {
+    "name": "スマスロ交響詩篇エウレカセブン4 HI‐EVOLUTION",
+    "n": 6,
+    "add": false,
+    "img": "4539.png"
+   },
+   {
+    "name": "Lパチスロ ダンベル何キロ持てる?",
+    "n": 6,
+    "add": false,
+    "img": "4669.png"
+   },
+   {
+    "name": "いざ!番長",
+    "n": 3,
+    "add": false,
+    "img": "4805.png"
+   },
+   {
+    "name": "スマスロ 秘宝伝",
+    "n": 3,
+    "add": false,
+    "img": "4929.png"
+   },
+   {
+    "name": "真打 吉宗",
+    "n": 3,
+    "add": false,
+    "img": "4983.png"
+   },
+   {
+    "name": "Lパチスロ ありふれた職業で世界最強",
+    "n": 3,
+    "add": false,
+    "img": "4715.png"
+   },
+   {
+    "name": "Sister Quest",
+    "n": 3,
+    "add": false,
+    "img": "4741.png"
+   },
+   {
+    "name": "スマスロスーパーブラックジャック",
+    "n": 3,
+    "add": false,
+    "img": "4712.png"
+   },
+   {
+    "name": "L サラリーマン金太郎",
+    "n": 3,
+    "add": false,
+    "img": "4718.png"
+   },
+   {
+    "name": "スマスロ BIRDIE WING ‐Golf Girls’ Story‐",
+    "n": 3,
+    "add": false,
+    "img": "4996.png"
+   },
+   {
+    "name": "スマスロ ゴールデンカムイ",
+    "n": 3,
+    "add": false,
+    "img": "4516.png"
+   },
+   {
+    "name": "A-SLOT+ 異世界かるてっと BT",
+    "n": 2,
+    "add": false,
+    "img": "4965.png"
+   },
+   {
+    "name": "L少女☆歌劇 レヴュースタァライト ‐The SLOT‐",
+    "n": 2,
+    "add": false,
+    "img": "4706.png"
+   },
+   {
+    "name": "パチスロ頭文字D",
+    "n": 2,
+    "add": false,
+    "img": "3779.png"
+   },
+   {
+    "name": "押忍!番長ZERO",
+    "n": 1,
+    "add": false,
+    "img": "4052.png"
+   }
+  ]
+ },
+ "url": "https://p-castle.co.jp/w-atsuta/shindai/",
+ "updated": "2026-09-15 20:43"
+}
