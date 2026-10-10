@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<!-- ★指で広げて拡大できるようにする(user-scalable=yes)。説明図の引き出し線は
+     細かいので、拡大できることがこのページの存在理由。 -->
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=6,user-scalable=yes">
+<title>説明の図</title>
+<!--
+  説明の図だけを出す軽いページ(2026-08-17新設)。
+
+  なぜ要るか(谷川氏の報告):
+    1回目「画像押して拡大するとエラー画面になる」
+        … 全画面の覆い(openPhoto)を島図＋パネルの上に重ねると、iPhoneで
+          表示直後に落ちた。収録中でも落ちたので描画負荷ではなくメモリ不足。
+    2回目「落ちなくはなったが元の画面に戻れない」
+        … 画像そのものを開くと、戻る手立てが画面に無い。
+
+  だから「画像を出すだけの、とても軽いページ」を**同じタブで**開き、
+  上に「← 元の画面に戻る」を置く。同じタブなので戻るは履歴で確実に効き、
+  島図とパネルはこのページを開いた時点で捨てられる＝メモリも解放される。
+
+  受け取り: ?s=<画像のファイル名> &t=<見出し>
+  画像はこのページと同じフォルダ(atsuta/)にある前提。**日付フォルダからは
+  ../fig.html で開かれる**ので、ここでの相対指定はどちらでも正しく当たる。
+-->
+<style>
+  :root{color-scheme:dark;}
+  html,body{margin:0;padding:0;background:#000;color:#fff;
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;}
+  header{position:sticky;top:0;z-index:2;background:#000;
+    padding:calc(env(safe-area-inset-top,0px) + 10px) 12px 10px;
+    display:flex;align-items:center;gap:10px;border-bottom:1px solid #333;}
+  /* 押し間違えないよう指1本ぶんの高さを確保する */
+  #back{border:none;border-radius:9px;padding:10px 14px;min-height:44px;
+    background:#e8ecf5;color:#1F3864;font-size:14.5px;font-weight:bold;
+    font-family:inherit;}
+  h1{margin:0;font-size:14px;font-weight:bold;line-height:1.3;}
+  /* 横長の図は幅いっぱいでも縦が余る(390px幅なら高さ262px)。
+     下に黒い帯が残ると「読み込み途中」に見えるので、縦の中央へ置く。 */
+  main{padding:10px 8px 28px;min-height:calc(100vh - 96px);
+    display:flex;flex-direction:column;justify-content:center;}
+  img{display:block;width:100%;height:auto;border-radius:6px;background:#fff;}
+  .hint{margin:12px 4px 0;font-size:12px;color:#c9c9c9;line-height:1.5;}
+  .ng{margin:20px 8px;font-size:13.5px;}
+</style>
+</head>
+<body>
+<header>
+  <button id="back" type="button">← 元の画面に戻る</button>
+  <h1 id="ttl">説明の図</h1>
+</header>
+<main>
+  <img id="fig" alt="">
+  <p class="hint">指で広げると、さらに大きく見られます。</p>
+</main>
+<script>
+(function(){
+  var q=new URLSearchParams(location.search);
+  var s=q.get("s")||"", t=q.get("t")||"説明の図";
+  // ★受け取るのは**ファイル名だけ**にする。よそのアドレスを開かせない。
+  if(!/^[A-Za-z0-9_\-]+\.(jpg|jpeg|png|webp)$/.test(s)){
+    document.querySelector("main").innerHTML=
+      '<p class="ng">図が指定されていません。</p>';
+  }else{
+    var im=document.getElementById("fig");
+    im.src=s; im.alt=t;
+  }
+  document.getElementById("ttl").textContent=t;
+  document.title=t;
+  // 同じタブで来ているので履歴で戻れる。履歴が無いときだけ島図へ直接戻す。
+  document.getElementById("back").addEventListener("click",function(){
+    if(history.length>1){ history.back(); }
+    else{ location.href="last7"; }
+  });
+})();
+</script>
+</body>
+</html>
