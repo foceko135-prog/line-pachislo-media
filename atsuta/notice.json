@@ -1,0 +1,179 @@
+{
+ "id": "shindai-2026-11-02",
+ "date": "2026-11-02",
+ "days": 2,
+ "title": "2日後 11/2(月) 新台入替",
+ "summary": "パチンコ・スロット18機種140台",
+ "note": "入替日は朝9:00〜12時ごろに台番と機種が入れ替わります。島図はその後の更新で新しい配置になります。",
+ "dup_of": null,
+ "slot_new": 70,
+ "slot_add": 4,
+ "lines": [
+  "スロット新台 スロット Vivy ‐Fluorite Eye’s Song‐ 15台／スマスロ ラグナドール 15台／L ソードアート・オンライン オルタナティブ ガンゲイル・オンライン 11台／L聖闘士星矢 黄金十二宮 10台／L牙狼 闇を照らす者 6台／L ゴジラ対エヴァンゲリオン 10台／L不二子BT 3台",
+  "増台(入替後の総台数) Lパチスロ 革命機ヴァルヴレイヴ2 計21台／マイジャグラーⅥ 計10台／押忍!番長ZERO 計7台／スマスロ モンスターハンターライズ 計6台"
+ ],
+ "detail": {
+  "pachi": [
+   {
+    "name": "eとある魔術の禁書目録3",
+    "n": 20,
+    "add": false,
+    "img": "5102.png"
+   },
+   {
+    "name": "eフィーバー妖怪ウォッチ",
+    "n": 10,
+    "add": false,
+    "img": "5081.png"
+   },
+   {
+    "name": "eグランベルム 319ver.",
+    "n": 6,
+    "add": false,
+    "img": null
+   },
+   {
+    "name": "eプリンセス・プリンシパル",
+    "n": 6,
+    "add": false,
+    "img": "5106.png"
+   },
+   {
+    "name": "e 獣王 獅子の一撃",
+    "n": 5,
+    "add": false,
+    "img": "5087.png"
+   },
+   {
+    "name": "P羽根BASTARD!! -暗黒の破壊神-",
+    "n": 3,
+    "add": false,
+    "img": "5088.png"
+   },
+   {
+    "name": "P天羽一閃 ‐一撃の「蒼」‐",
+    "n": 3,
+    "add": false,
+    "img": "5115.png"
+   },
+   {
+    "name": "e 仮面ライダーBLACK デカヘソ Light Version",
+    "n": 2,
+    "add": false,
+    "img": "5122.png"
+   },
+   {
+    "name": "P真・花の慶次3~99ver.",
+    "n": 3,
+    "add": true,
+    "img": "4469.png"
+   },
+   {
+    "name": "eひきこまり吸血姫の悶々",
+    "n": 3,
+    "add": false,
+    "img": "5006.png"
+   },
+   {
+    "name": "PHはねもの ハネ釈迦",
+    "n": 2,
+    "add": false,
+    "img": "5070.png"
+   },
+   {
+    "name": "Pはねものファインプレー",
+    "n": 2,
+    "add": false,
+    "img": "4878.png"
+   },
+   {
+    "name": "ｅアサルトリリィ",
+    "n": 1,
+    "add": false,
+    "img": "5075.png"
+   },
+   {
+    "name": "e 化物語 鬼99ver.",
+    "n": 1,
+    "add": false,
+    "img": "4987.png"
+   },
+   {
+    "name": "e 東京リベンジャーズ 聖夜決戦編",
+    "n": 1,
+    "add": false,
+    "img": "5026.png"
+   }
+  ],
+  "slot": [
+   {
+    "name": "スロット Vivy ‐Fluorite Eye’s Song‐",
+    "n": 15,
+    "add": false,
+    "img": "5120.png"
+   },
+   {
+    "name": "スマスロ ラグナドール",
+    "n": 15,
+    "add": false,
+    "img": "5079.png"
+   },
+   {
+    "name": "L ソードアート・オンライン オルタナティブ ガンゲイル・オンライン",
+    "n": 11,
+    "add": false,
+    "img": "5073.png"
+   },
+   {
+    "name": "L聖闘士星矢 黄金十二宮",
+    "n": 10,
+    "add": false,
+    "img": "5104.png"
+   },
+   {
+    "name": "L牙狼 闇を照らす者",
+    "n": 6,
+    "add": false,
+    "img": "5121.png"
+   },
+   {
+    "name": "L ゴジラ対エヴァンゲリオン",
+    "n": 10,
+    "add": false,
+    "img": "4501.png"
+   },
+   {
+    "name": "L不二子BT",
+    "n": 3,
+    "add": false,
+    "img": "4921.png"
+   },
+   {
+    "name": "Lパチスロ 革命機ヴァルヴレイヴ2",
+    "n": 21,
+    "add": true,
+    "img": "4885.png"
+   },
+   {
+    "name": "マイジャグラーⅥ",
+    "n": 10,
+    "add": true,
+    "img": "5054.png"
+   },
+   {
+    "name": "押忍!番長ZERO",
+    "n": 7,
+    "add": true,
+    "img": "4052.png"
+   },
+   {
+    "name": "スマスロ モンスターハンターライズ",
+    "n": 6,
+    "add": true,
+    "img": "4676.png"
+   }
+  ]
+ },
+ "url": "https://p-castle.co.jp/w-atsuta/shindai/",
+ "updated": "2026-10-31 20:40"
+}
