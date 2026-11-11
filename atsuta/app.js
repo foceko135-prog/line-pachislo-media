@@ -7636,7 +7636,9 @@ function updateWhere(){
   }else if(el&&el.closest){
     const c=el.closest(".cell");
     const t=c&&c.textContent?c.textContent.trim():"";
-    if(t) txt=t.replace(/\s+/g," ").slice(0,24);
+    // パチンコの帯では出さない(2026-11-12・谷川さん指示「パチンコのところは消去してよい」)。
+    // データの無いパチンコ島の帯の文字がそのまま上端の見出しに重なって出ていた。
+    if(t && t.indexOf("パチンコ")<0) txt=t.replace(/\s+/g," ").slice(0,24);
   }
   if(!txt){ chip.classList.remove("show"); return; }
   chip.textContent=txt;
