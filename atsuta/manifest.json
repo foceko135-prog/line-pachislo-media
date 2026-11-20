@@ -1,0 +1,17 @@
+{
+  "name": "シマヒート｜熱田 島図ヒート",
+  "short_name": "シマヒート",
+  "description": "プレイランドキャッスル熱田の島図に台ごとの平均差枚を色で重ねたツール。単日・水曜のみ・直近7日・全期間を切替、台番タップで日ごとの差枚・G数・出率とグラフ。",
+  "lang": "ja",
+  "start_url": "/atsuta/last7",
+  "scope": "/atsuta/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1F3864",
+  "icons": [
+    { "src": "/atsuta/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/atsuta/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/atsuta/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/atsuta/icons/icon-1024.png", "sizes": "1024x1024", "type": "image/png" }
+  ]
+}

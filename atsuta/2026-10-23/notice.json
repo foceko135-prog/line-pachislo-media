@@ -1,0 +1,209 @@
+{
+ "id": "shindai-2026-10-19",
+ "date": "2026-10-19",
+ "days": -3,
+ "title": "10/19(月) 新台入替",
+ "summary": "パチンコ・スロット22機種100台",
+ "note": "入替日は朝9:00〜12時ごろに台番と機種が入れ替わります。島図はその後の更新で新しい配置になります。",
+ "dup_of": null,
+ "slot_new": 47,
+ "slot_add": 3,
+ "lines": [
+  "スロット新台 L魔法少女にあこがれて 6台／パチスロ　革命機ヴァルヴレイヴ 10台／パチスロ　からくりサーカス 5台／Ｌ戦国乙女４　戦乱に閃く炯眼の軍師 5台／マイジャグラーVI 5台／スマスロケロット5BT 3台／スマート沖スロ ダークハイビ 3台／チバリヨ2 3台／L南国育ち SPECIAL 3台／マジカルハロウィン ボーナストリガー 2台／Lバンドリ! 2台",
+  "増台(入替後の総台数) ニューキングハナハナV‐30 計77台／キングハナハナ-30 計59台／スマスロ北斗の拳 計21台"
+ ],
+ "detail": {
+  "pachi": [
+   {
+    "name": "P 新世紀エヴァンゲリオン ‐319 RED‐",
+    "n": 6,
+    "add": false,
+    "img": "5091.png"
+   },
+   {
+    "name": "e東京リベンジャーズ",
+    "n": 6,
+    "add": false,
+    "img": "4796.png"
+   },
+   {
+    "name": "eとある科学の超電磁砲 PHASE NEXT",
+    "n": 3,
+    "add": false,
+    "img": "4874.png"
+   },
+   {
+    "name": "e ライザのアトリエ ~常闇の女王と秘密の隠れ家~",
+    "n": 3,
+    "add": false,
+    "img": "5008.png"
+   },
+   {
+    "name": "ｅ花の慶次～黄金の一撃",
+    "n": 3,
+    "add": false,
+    "img": "4900.png"
+   },
+   {
+    "name": "e 甲鉄城のカバネリ2 咲かせや燦然",
+    "n": 2,
+    "add": false,
+    "img": "4935.png"
+   },
+   {
+    "name": "新世紀エヴァンゲリオン～未来への咆哮～",
+    "n": 42,
+    "add": true,
+    "img": "4021.png"
+   },
+   {
+    "name": "eFからくりサーカス2 魔王ver.",
+    "n": 8,
+    "add": true,
+    "img": "4649.png"
+   },
+   {
+    "name": "Pルパン三世 ONE COLLECTION",
+    "n": 2,
+    "add": true,
+    "img": "4629.png"
+   },
+   {
+    "name": "P中森明菜・歌姫伝説~BLACK DIVA 極~",
+    "n": 2,
+    "add": true,
+    "img": "4480.png"
+   },
+   {
+    "name": "P 新世紀エヴァンゲリオン ～未来への咆哮～ SPECIAL EDITION",
+    "n": 3,
+    "add": false,
+    "img": "4418.png"
+   },
+   {
+    "name": "P北斗の拳 暴凶星",
+    "n": 3,
+    "add": false,
+    "img": "4332.png"
+   },
+   {
+    "name": "e真・北斗無双 第5章 ドデカSTART",
+    "n": 2,
+    "add": false,
+    "img": "4758.png"
+   },
+   {
+    "name": "PFうたわれるもの 199ver.",
+    "n": 2,
+    "add": false,
+    "img": "4747.png"
+   },
+   {
+    "name": "eアクダマドライブ",
+    "n": 1,
+    "add": false,
+    "img": "4954.png"
+   },
+   {
+    "name": "e ノーゲーム・ノーライフ 319Ver.",
+    "n": 1,
+    "add": false,
+    "img": "4862.png"
+   },
+   {
+    "name": "eワンパンマン2～正義執行",
+    "n": 1,
+    "add": false,
+    "img": "4969.png"
+   }
+  ],
+  "slot": [
+   {
+    "name": "L魔法少女にあこがれて",
+    "n": 6,
+    "add": false,
+    "img": "5113.png"
+   },
+   {
+    "name": "パチスロ　革命機ヴァルヴレイヴ",
+    "n": 10,
+    "add": false,
+    "img": "4244.png"
+   },
+   {
+    "name": "パチスロ　からくりサーカス",
+    "n": 5,
+    "add": false,
+    "img": "4360.png"
+   },
+   {
+    "name": "Ｌ戦国乙女４　戦乱に閃く炯眼の軍師",
+    "n": 5,
+    "add": false,
+    "img": "4395.png"
+   },
+   {
+    "name": "マイジャグラーVI",
+    "n": 5,
+    "add": false,
+    "img": "5054.png"
+   },
+   {
+    "name": "スマスロケロット5BT",
+    "n": 3,
+    "add": false,
+    "img": "5015.png"
+   },
+   {
+    "name": "スマート沖スロ ダークハイビ",
+    "n": 3,
+    "add": false,
+    "img": "5016.png"
+   },
+   {
+    "name": "チバリヨ2",
+    "n": 3,
+    "add": false,
+    "img": "4530.png"
+   },
+   {
+    "name": "L南国育ち SPECIAL",
+    "n": 3,
+    "add": false,
+    "img": "5031.png"
+   },
+   {
+    "name": "マジカルハロウィン ボーナストリガー",
+    "n": 2,
+    "add": false,
+    "img": "4854.png"
+   },
+   {
+    "name": "Lバンドリ!",
+    "n": 2,
+    "add": false,
+    "img": "4641.png"
+   },
+   {
+    "name": "ニューキングハナハナV‐30",
+    "n": 77,
+    "add": true,
+    "img": "4912.png"
+   },
+   {
+    "name": "キングハナハナ-30",
+    "n": 59,
+    "add": true,
+    "img": "4311.png"
+   },
+   {
+    "name": "スマスロ北斗の拳",
+    "n": 21,
+    "add": true,
+    "img": "4301.png"
+   }
+  ]
+ },
+ "url": "https://p-castle.co.jp/w-atsuta/shindai/",
+ "updated": "2026-10-22 12:40"
+}
